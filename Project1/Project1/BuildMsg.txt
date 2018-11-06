@@ -1,0 +1,56 @@
+Starting MAKE...
+creating project.mk 
+
+lib/dualadc_1.asm
+
+lib/dualadc_1int.asm
+
+lib/lcd.asm
+
+lib/lpf2_1.asm
+
+lib/lpf2_2.asm
+
+lib/pga_1.asm
+
+lib/pga_2.asm
+
+lib/pga_3.asm
+
+lib/pga_4.asm
+
+lib/psocconfig.asm
+
+lib/psocconfigtbl.asm
+
+lib/psocgpioint.asm
+
+lib/pushbuttontimer.asm
+
+lib/pushbuttontimerint.asm
+
+lib/stopwatchtimer.asm
+
+lib/stopwatchtimerint.asm
+
+./boot.asm
+
+Linking..
+
+LMM info: area 'InterruptRAM' uses 11 bytes in SRAM bank 0
+
+LMM info: area 'bss' item of 38 bytes allocated in SRAM page 0
+
+LMM info: area 'virtual_registers' uses 2 bytes in SRAM page 0
+
+idata dump at output/Project1.idata
+
+  ROM 9% full. 2801 out of 32768 bytes used (does not include absolute areas).
+
+  RAM 3% full. 51 bytes used (does not include stack usage).
+
+Built with ICCM8C STD V7.05.00
+
+ 
+Project1 - 0 error(s) 0 warning(s) 21:24:06
+
