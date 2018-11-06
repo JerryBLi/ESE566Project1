@@ -357,18 +357,6 @@ resolutionSettingMode:
 	cmp [currState], 3
 	jnz changeState
 
-	;DO THE FOLLOWING IF THERE IS A SHORT BUTTON PRESS
-	resolutionSettingMode_changeMode:
-	;increment the currRes variable
-	;if the variable is greater than 2 then set back to 0
-	inc [currRes]
-	cmp [currRes],3
-	jz resolutionSettingMode_resetRes
-	jmp resolutionSettingMode_displayMode
-	
-	resolutionSettingMode_resetRes:
-	mov [currRes],0
-	
 	;Display the current resolution
 	resolutionSettingMode_displayMode:
 	;todo - we need to test if this works
@@ -398,6 +386,21 @@ resolutionSettingMode:
 	mov X, <CURRENT_RES_1P0 ; Move LSB into X
 	lcall _LCD_PrCString
 	jmp resolutionSettingMode
+
+	;DO THE FOLLOWING IF THERE IS A SHORT BUTTON PRESS
+	resolutionSettingMode_changeMode:
+	;increment the currRes variable
+	;if the variable is greater than 2 then set back to 0
+	inc [currRes]
+	cmp [currRes],3
+	jz resolutionSettingMode_resetRes
+	jmp resolutionSettingMode_displayMode
+	
+	resolutionSettingMode_resetRes:
+	mov [currRes],0
+	jmp resolutionSettingMode_displayMode
+	
+	
 	
 
 
