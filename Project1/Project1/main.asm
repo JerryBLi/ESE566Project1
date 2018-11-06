@@ -29,6 +29,7 @@ export currState
 export currSubState
 export subStateTable
 
+
 ;-------- ALLOCATIONS ------
 area bss(ram) ;What is the name field??? What should I put?
 currState: blk 1 ; 1 byte for current main state
@@ -356,12 +357,53 @@ resolutionSettingMode:
 	cmp [currState], 3
 	jnz changeState
 
-;DO THE FOLLOWING IF THERE IS A SHORT BUTTON PRESS
+	;Display the current resolution
+	resolutionSettingMode_displayMode:
+	;todo - we need to test if this works
+	lcall LCD_Wipe
+	mov A, 0 ; Set LCD Position: Row (A) = 0
+	mov X, 0 ; Col (X) = 0
+	lcall _LCD_Position
+	;choose which string to display
+	cmp [currRes], 0
+	jz resolutionSettingMode_display0P1
+	cmp [currRes], 1
+	jz resolutionSettingMode_display0P5
+	cmp [currRes], 2
+	jz resolutionSettingMode_display1P0
+	resolutionSettingMode_display0P1:
+	mov A, >CURRENT_RES_0P1 ; Move MSB of ROM string address into A
+	mov X, <CURRENT_RES_0P1 ; Move LSB into X
+	lcall _LCD_PrCString
+	jmp resolutionSettingMode
+	resolutionSettingMode_display0P5:
+	mov A, >CURRENT_RES_0P5 ; Move MSB of ROM string address into A
+	mov X, <CURRENT_RES_0P5 ; Move LSB into X
+	lcall _LCD_PrCString
+	jmp resolutionSettingMode
+	resolutionSettingMode_display1P0:
+	mov A, >CURRENT_RES_1P0 ; Move MSB of ROM string address into A
+	mov X, <CURRENT_RES_1P0 ; Move LSB into X
+	lcall _LCD_PrCString
+	jmp resolutionSettingMode
 
-;increment the currRes variable
-;if the variable is greater than 2 then set back to 0
-inc [currRes]
-cmp [currRes],2
+	;DO THE FOLLOWING IF THERE IS A SHORT BUTTON PRESS
+	resolutionSettingMode_changeMode:
+	;increment the currRes variable
+	;if the variable is greater than 2 then set back to 0
+	inc [currRes]
+	cmp [currRes],3
+	jz resolutionSettingMode_resetRes
+	jmp resolutionSettingMode_displayMode
+	
+	resolutionSettingMode_resetRes:
+	mov [currRes],0
+	jmp resolutionSettingMode_displayMode
+	
+	
+	
+
+
 
 ; --------------------------------------------
 ; ----- Memory Mode (STATE 4):
@@ -518,5 +560,15 @@ WAITING_FOR_SOUND:
 	db 0x0
 GOT_SOUND:
 	ds "GOT SOUND..."
+	db 0x0
+;string literals for current resolutions to display to user
+CURRENT_RES_0P1:
+	ds "CURR RES: 0.1s
+	db 0x0
+CURRENT_RES_0P5:
+	ds "CURR RES: 0.5s
+	db 0x0
+CURRENT_RES_1P0:
+	ds "CURR RES: 1.0s
 	db 0x0
 .ENDLITERAL 
