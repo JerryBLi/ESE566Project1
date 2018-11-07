@@ -398,7 +398,7 @@ S pushButtonDownTime Ref0000
 S PushButtonTimer_Start Ref0000
 S currState Ref0000
 S currSubState Ref0000
-A text size 3E flags 0
+A text size 40 flags 0
 dbfile lib/psocgpioint.asm
 dbfunc 0 ? 0 I
 dbline 3F 0
@@ -410,29 +410,29 @@ dbline 45 7
 dbline 46 9
 dbline 47 B
 dbline 49 D
-dbline 4A F
-dbline 4B 12
-dbline 52 14
-dbline 53 16
-dbline 54 18
-dbline 55 1A
-dbline 57 1C
-dbline 58 1E
-dbline 59 20
-dbline 5A 22
-dbline 5F 24
-dbline 61 27
-dbline 62 29
-dbline 63 2C
-dbline 64 2E
-dbline 65 31
-dbline 68 33
-dbline 6B 35
-dbline 6D 38
-dbline 6E 39
-dbline 6F 3B
-dbline 70 3C
-dbline 74 3D
+dbline 4A 10
+dbline 4B 13
+dbline 52 15
+dbline 53 17
+dbline 54 19
+dbline 55 1B
+dbline 57 1D
+dbline 58 1F
+dbline 59 21
+dbline 5A 23
+dbline 5F 25
+dbline 61 28
+dbline 62 2A
+dbline 63 2D
+dbline 64 2F
+dbline 65 32
+dbline 68 34
+dbline 6B 37
+dbline 6D 3A
+dbline 6E 3B
+dbline 6F 3D
+dbline 70 3E
+dbline 74 3F
 dbfile ./lib/PSoCGPIOINT.inc
 dbfunc 0 ? 0 I
 dbfile lib/psocgpioint.asm
@@ -440,22 +440,20 @@ dbfunc 0 ? 0 I
 dbfile C:/PROGRA~2/Cypress/PSOCDE~1/5.4/Common/CYPRES~1/tools/include/CY8C29~1/m8c.inc
 dbfunc 0 ? 0 I
 S PSoC_GPIO_ISR Def0000
-T 00 00 08 10 5D D0 08 5D 04 21 01 39 01 A0 27
+T 00 00 08 10 5D D0 08 5D 04 21 01 39 01 A0 28 7C
 R 00 00 00 00
-T 00 0D 90 00 3C 00 00 05 C0 11 51
-R 00 00 00 00 06 02 00 00 00 00 03 05 00 02
-T 00 15 00 00 02 00 00 02 00 00 02
+T 00 0E 00 00 3C 00 00 05 C0 11 51 00 00 02
+R 00 00 00 00 02 02 00 00 03 05 00 02 03 0B 00 04
+T 00 18 00 00 02 00 00 02 00 00 02
 R 00 00 00 00 03 02 00 04 03 05 00 04 03 08 00 04
-T 00 1B 00 00 02 00 00
-R 00 00 00 00 03 02 00 04 03 05 00 05
-T 00 1E F0 00 53 00 00 80 12 55
-R 00 00 00 00 06 02 00 01 00 00 03 05 00 05
-T 00 25 00 00 00 76 00 00 3C 00 00 05 C0 08 55
-R 00 00 00 00 03 02 00 05 03 06 00 04 03 09 00 04
-T 00 2F 00 00 00 80 03 90 00 55
-R 00 00 00 00 03 02 00 04 06 07 00 03 00 00
-T 00 36 00 00 00 18 60 D0 20 18 7E
-R 00 00 00 00 03 02 00 02
+T 00 1E 00 00 F0 00 53
+R 00 00 00 00 03 02 00 05 06 04 00 01 00 00
+T 00 22 00 00 80 13 55 00 00 00 76 00 00 3C
+R 00 00 00 00 03 02 00 05 03 07 00 05 03 0B 00 04
+T 00 2B 00 00 05 C0 09 55 00 00 00 80 04 7C 00 00
+R 00 00 00 00 03 02 00 04 03 08 00 04 02 0E 00 03
+T 00 37 55 00 00 00 18 60 D0 20 18 7E
+R 00 00 00 00 03 03 00 02
 .end
 .start
 XH

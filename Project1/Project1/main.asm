@@ -6,6 +6,7 @@ include "m8c.inc"       ; part specific constants and macros
 include "memory.inc"    ; Constants & macros for SMM/LMM and Compiler
 include "PSoCAPI.inc"   ; PSoC API definitions for all User Modules
 
+
 export _main
 
 ;---------------------------------------------;
@@ -50,10 +51,11 @@ shortestTime: blk 2 ; 2 shortest time recorded
 averageTime: blk 2 ; 2 average time recorded
 longestTime: blk 2 ; 2 longest time recorded
 
+;JL
 ;variables for multiplication
-multiplicationResult: blk 4
-xValue: blk 2
-yValue: blk 2
+multiplicationResult: blk 2
+tempTimeInSec: blk 2
+tempVar2: blk 4
 
 pushButtonDownTime: blk 1;how long has the pushbutton been pressed in 1/10th of sec?
 
@@ -66,6 +68,7 @@ memData1: blk 2
 memData2: blk 2
 memData3: blk 2
 memData4: blk 2
+
 
 
 ;----------------------------------------------;
@@ -121,6 +124,11 @@ _main:
 	mov [currNumMins], 0
 	mov [currNumSecs], 0
 	mov [currNumDeciSecs], 0
+	
+	;JL
+	mov [shortestTime], 0xFF ;Set lower byte to FF so that it's largest possible value
+	mov [shortestTime + 1], 0xFF ;Set upper byte to FF so that it's largest possible value
+	
 	
 	; ---------------------
 	; SPLASH SCREEN
@@ -357,6 +365,9 @@ resolutionSettingMode:
 	cmp [currState], 3
 	jnz changeState
 
+	cmp [currSubState], 1 ;if the substate is to increment the res
+	jz resolutionSettingMode_changeMode
+	
 	;Display the current resolution
 	resolutionSettingMode_displayMode:
 	;todo - we need to test if this works
@@ -391,6 +402,7 @@ resolutionSettingMode:
 	resolutionSettingMode_changeMode:
 	;increment the currRes variable
 	;if the variable is greater than 2 then set back to 0
+	mov [currSubState], 0 ;reset the substate back to display
 	inc [currRes]
 	cmp [currRes],3
 	jz resolutionSettingMode_resetRes
@@ -437,6 +449,9 @@ changeState:
 	cmp A, 4
 	jz memoryMode
 	; If we're here, currentState is invalid.
+	;JL
+	mov [currState], 0
+	ljmp soundMode
 	; Display error text.
 	lcall LCD_Wipe ; TODO: lcall necessary, or just call?
 	mov A, >BAD_STATE_ERROR
@@ -509,6 +524,200 @@ LCD_Wipe:
 	; --- END ---
 	ret
 	
+;JL
+;Save Time Data:
+;Saves the current time in seconds for memory mode
+;http://www.cypress.com/file/133371/download
+saveTimeData:
+	;move current data down 1, we move both upper and lower bytes
+	; 3->4 ; 2->3 ; 1->2 ; 0->1
+	mov [memData4], [memData3]
+	mov [memData4 + 1], [memData3 + 1]
+
+	mov [memData3], [memData2]
+	mov [memData3 + 1], [memData2 + 1]
+
+	mov [memData2], [memData1]
+	mov [memData2 + 1], [memData1 + 1]
+
+	mov [memData1], [memData0]
+	mov [memData1 + 1], [memData0 + 1]
+
+	;tempVar = Hours * 3600
+	;take a look at the section 2.19 of the doc above
+	mov A, >tempVar
+	push A
+	mov A, <tempVar
+	push A
+	;3600 part
+	mov A, 16 ;lower byte of 0x0E16 (3600)
+	push A
+	mov A, 0x0E ;upper byte of 0x0E16 (3600)
+	push A
+	;Hours part
+	mov A, [currNumHours]
+	push A
+	mov A, 0
+	push A
+	lcall mulu_16x16_32
+	add SP, 250 ;pop the stack ?
+
+	;add the result in tempVar to tempTimeInSec
+	mov A, [tempVar]
+	add [tempTimeInSec], A
+	mov A, [tempVar + 1]
+	adc [tempTimeInSec + 1], A
+
+	;Minutes * 60
+	;take a look at the section 2.18 of the doc above
+	mov X, 60 ;60 part of equation
+	mov A, currNumMins ;Minutes part of equation
+	lcall mulu_8x8_16
+
+	;add the result to tempTimeInSec
+	adc [tempTimeInSec + 1], A
+	mov A, X
+	add [tempTimeInSec], A
+	
+
+	;add seconds
+	mov A, [currNumSecs]
+	add [tempTimeInSec], A
+	adc [tempTimeInSec + 1], 0
+
+	;save to first memory slot
+	mov [memData0], [tempTimeInSec]
+	mov [memData0 + 1], [tempTimeInSec + 1]
+
+	;is it the smallest value?
+	saveTimeData_smallest_upper:
+		mov A, [memData0 + 1]
+		cmp A, [shortestTime + 1] 
+		jz saveTimeData_smallest_lower ;the upper bytes are equal
+		jc saveTimeData_isSmallest ;upper byte of current value is smaller
+		jmp saveTimeData_largest_upper
+	saveTimeData_smallest_lower:
+		mov A, [memData0]
+		cmp A, [shortestTime]
+		jc saveTimeData_isSmallest ;lower byte is smaller
+		jmp saveTimeData_largest_upper ;equal or larger
+	saveTimeData_isSmallest:
+		mov [shortestTime], [memData0]
+		mov [shortestTime + 1], [memData0 + 1]
+		jmp saveTimeData_end
+	;is it the largest value?
+	saveTimeData_largest_upper:
+		mov A, [memData0 +1]
+		cmp A, [longestTime + 1]
+		jz saveTimeData_largest_lower ;the upper bytes are equal
+		jnc saveTimeData_isLargest ;the upper byte is larger
+		jmp saveTimeData_end
+	saveTimeData_largest_lower:
+		mov A, [memData0]
+		cmp A, [longestTime]
+		jnc saveTimeData_isLargest ;the lower byte is larger
+		jmp saveTimeData_end ;equal or smaller
+	saveTimeData_isLargest:
+		mov [longestTime], [memData0]
+		mov [longestTime + 1], [memData0 + 1]
+
+	;reset temp data
+	saveTimeData_end:
+	mov [tempTimeInSec], 0
+	mov [tempTimeInSec + 1], 0
+
+ret
+
+;JL 
+;Calculate Average of Data
+;Takes the 5 data points and calculates the average
+calculateAverageOfData:
+	calculateAverageOfData_isData0_populated:
+	cmp [memData0], 0
+	jz calculateAverageOfData_isData1_populated
+	inc [tempByte] ;there is a time populated here
+	;add this time to the total
+	mov A, [memData0]
+	add [tempVar], A
+	mov A, [memData0 + 1]
+	adc [tempVar + 1], A
+	adc [tempVar + 2], 0
+	calculateAverageOfData_isData1_populated:
+	cmp [memData1], 0
+	jz calculateAverageOfData_isData2_populated
+	inc [tempByte] ;there is a time populated here
+	;add this time to the total
+	mov A, [memData1]
+	add [tempVar], A
+	mov A, [memData1 + 1]
+	adc [tempVar + 1], A
+	adc [tempVar + 2], 0
+	calculateAverageOfData_isData2_populated:
+	cmp [memData2], 0
+	jz calculateAverageOfData_isData3_populated
+	inc [tempByte] ;there is a time populated here	
+	;add this time to the total
+	mov A, [memData2]
+	add [tempVar], A
+	mov A, [memData2 + 1]
+	adc [tempVar + 1], A
+	adc [tempVar + 2], 0
+	calculateAverageOfData_isData3_populated:
+	cmp [memData3], 0
+	jz calculateAverageOfData_isData4_populated
+	inc [tempByte] ;there is a time populated here	
+	;add this time to the total
+	mov A, [memData3]
+	add [tempVar], A
+	mov A, [memData3 + 1]
+	adc [tempVar + 1], A
+	adc [tempVar + 2], 0
+	calculateAverageOfData_isData4_populated:
+	cmp [memData4], 0
+	jz calculateAverageOfData_doCalc
+	inc [tempByte] ;there is a time populated here
+	;add this time to the total
+	mov A, [memData4]
+	add [tempVar], A
+	mov A, [memData4 + 1]
+	adc [tempVar + 1], A
+	adc [tempVar + 2], 0
+	
+	calculateAverageOfData_doCalc:
+	;check out section 2.6 of above paper
+	mov A, >tempVar2
+	push A
+	mov A, <tempVar2
+	push A
+	mov A, tempByte ;2nd parameter byte 0
+	push A
+	mov A, 0 ;2nd parameter byte 1
+	push A
+	mov A, 0 ;2nd parameter byte 2
+	push A
+	mov A, 0 ;2nd parameter byte 3
+	push A
+	mov A, [tempVar] ;1st parameter
+	push A
+	mov A, [tempVar + 1]
+	push A	
+	mov A, [tempVar + 2]
+	push A
+	mov A, [tempVar + 3]
+	push A
+	lcall divu_32x32_32
+	add SP, 246 ;pop the stack ?
+	
+	mov [averageTime], [tempVar2]
+	mov [averageTime + 1], [tempVar2 + 1]
+	
+	;reset temp variables
+	mov [tempByte], 0
+	mov [tempVar], 0
+	mov [tempVar + 1], 0
+	mov [tempVar + 2], 0
+	mov [tempVar + 3], 0
+ret
 
 .terminate:
     jmp .terminate
@@ -524,7 +733,7 @@ subStateTable:
  	; Typically just "this state + 1" will rollover to 0 for inaccessible states
 	; 4 column maximum at the moment - can be expanded with appropriate changes to PSoCGPIOINT
 	; |  STATE 0  |  STATE 1  |  STATE 2  |  STATE 3  |  STATE 5  |    
-	db 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0, 1, 2, 3, 0
+	db 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 3, 0
 SPLASH_SCREEN_A:
 	ds "  ESE566 WATCH  "
 	db 0x0
@@ -563,12 +772,12 @@ GOT_SOUND:
 	db 0x0
 ;string literals for current resolutions to display to user
 CURRENT_RES_0P1:
-	ds "CURR RES: 0.1s
+	ds "CURR RES: 0.1s"
 	db 0x0
 CURRENT_RES_0P5:
-	ds "CURR RES: 0.5s
+	ds "CURR RES: 0.5s"
 	db 0x0
 CURRENT_RES_1P0:
-	ds "CURR RES: 1.0s
+	ds "CURR RES: 1.0s"
 	db 0x0
 .ENDLITERAL 

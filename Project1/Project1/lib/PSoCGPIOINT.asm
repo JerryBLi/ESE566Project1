@@ -70,7 +70,7 @@ PSoC_GPIO_ISR:
 	cmp A, 1 ; Is this a down push?
 	jz downPush
 	;------ BUTTON RELEASED ------;
-	call PushButtonTimer_Stop
+	lcall PushButtonTimer_Stop
 	cmp [pushButtonDownTime],5
 	jc longButtonPush ; The button push is longer than 0.5 seconds
 	; ----- SHORT BUTTON PRESS
@@ -101,7 +101,7 @@ PSoC_GPIO_ISR:
 		jmp restore_GPIO_ISR ; NOW go to restore
 	;------ BUTTON PRESSED ------;
 	downPush:
-		call PushButtonTimer_Start ; start the pushbutton timer
+		lcall PushButtonTimer_Start ; start the pushbutton timer
 		; No need for a jump, just continue to restore
 	restore_GPIO_ISR:
 		mov [pushButtonDownTime], 0 ; Reset this time back to 0.
