@@ -39,18 +39,18 @@ Linking..
 
 LMM info: area 'InterruptRAM' uses 11 bytes in SRAM bank 0
 
-LMM info: area 'bss' item of 38 bytes allocated in SRAM page 0
+LMM info: area 'bss' item of 42 bytes allocated in SRAM page 0
 
 LMM info: area 'virtual_registers' uses 2 bytes in SRAM page 0
 
 idata dump at output/Project1.idata
 
-  ROM 9% full. 2801 out of 32768 bytes used (does not include absolute areas).
+  ROM 10% full. 2967 out of 32768 bytes used (does not include absolute areas).
 
-  RAM 3% full. 51 bytes used (does not include stack usage).
+  RAM 4% full. 55 bytes used (does not include stack usage).
 
 Built with ICCM8C STD V7.05.00
 
  
-Project1 - 0 error(s) 0 warning(s) 21:24:06
+Project1 - 0 error(s) 0 warning(s) 20:59:57
 

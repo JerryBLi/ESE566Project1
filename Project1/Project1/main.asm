@@ -67,6 +67,9 @@ memData2: blk 2
 memData3: blk 2
 memData4: blk 2
 
+;variables for sound measurements
+thresholdValue: blk 2	; 16 bits set initially or by microphoneCalibrationMode
+soundValue: 	blk 2 	; 16 bits from ADC
 
 ;----------------------------------------------;
 ;----------------------------------------------;
@@ -98,22 +101,22 @@ _main:
 	lcall _LCD_Init
 	
 	; Initialize PGA's and Dual ADC's
-	mov   A, PGA_1_HIGHPOWER ; enable PGA 1 in high power mode
+	mov   A, PGA_1_HIGHPOWER 		; enable PGA 1 in high power mode
     lcall PGA_1_Start			
 	
-	mov   A, PGA_2_HIGHPOWER ; enable PGA 2 in high power mode
+	mov   A, PGA_2_HIGHPOWER 		; enable PGA 2 in high power mode
     lcall PGA_2_Start
 	
-    mov   A, LPF2_1_HIGHPOWER ; enable LPF2 in high power mode
+    mov   A, LPF2_1_HIGHPOWER 		; enable LPF2 in high power mode
     lcall LPF2_1_Start
 	
-    mov   A, 7   ; set resolution to 7 Bits
+    mov   A, 7   					; set resolution to 7 Bits
     lcall  DUALADC_1_SetResolution
 
-    mov   A, DUALADC_1_HIGHPOWER  ; enable ADC in high power mode
+    mov   A, DUALADC_1_HIGHPOWER  	; enable ADC in high power mode
     lcall  DUALADC_1_Start
 
-    mov   A, 00h          ; use ADC in continuous sampling mode
+    mov   A, 00h          			; use ADC in continuous sampling mode
     lcall  DUALADC_1_GetSamples
 	
 	; Initialize variables in RAM
@@ -121,6 +124,9 @@ _main:
 	mov [currNumMins], 0
 	mov [currNumSecs], 0
 	mov [currNumDeciSecs], 0
+	
+	mov [thresholdValue+1], 3Ch		; LSB of thresholdValue
+	mov [thresholdValue+0], 00h		; MSB of thresholdValue
 	
 	; ---------------------
 	; SPLASH SCREEN
@@ -144,6 +150,7 @@ _main:
 		lcall StopwatchTimer_Start
 		cmp [currNumSecs], 2
 		jc splash_delay ; If carry, that means currNumSecs < 2, so loop
+		
 	call StopwatchTimer_Stop
 	mov [currNumSecs], 0
 	mov [currNumDeciSecs], 0
@@ -185,51 +192,99 @@ jmp test
 ; --------------------------------------------
 ; we determine if the sound level is 2x the average
 ; If it is, then start the timer
+; SUBSTATES:
+; 0 = waiting for whistle
+; 1 = started timer (whistle detected)
 soundMode:
 	; Check that we're in the right state
 	cmp [currState], 0
 	jnz changeState
-	lcall LCD_Wipe ; TODO: lcall necessary, or just call?
-	mov A, >SOUND_MODE
-	mov X, <SOUND_MODE
-	lcall _LCD_PrCString
-	mov reg[PRT1DR], 0b10111110
-	
-waitForADC_1: 
-	; waiting for sound LCD display
-	mov A, 1
-	mov X, 0
-	lcall _LCD_Position
-	mov A, >WAITING_FOR_SOUND
-	mov X, <WAITING_FOR_SOUND
-	lcall _LCD_PrCString
-	
-	lcall  DUALADC_1_fIsDataAvailable	; check if there is data available from the ADC
-    jz    waitForADC_1					; poll until data is ready
 
-dataReadyADC_1:
-	; data is ready, display on LCD
-	mov A, 1
-	mov X, 0
-	lcall _LCD_Position
-	mov A, >GOT_SOUND
-	mov X, <GOT_SOUND
-	lcall _LCD_PrCString
+	; Go to correct substate
+	cmp [currSubState], 0
+	jz waitForADC_1
+	; If we eschew error handling, we can just make this jump to _run
+	cmp [currSubState], 1
+	jz startTimer
 	
-	M8C_DisableGInt   					; we want to temporarily disable global interrupts
-    lcall DUALADC_1_iGetData1        	; Get ADC1(P01) Data (X = MSB A=LSB)
-	M8C_EnableGInt 						; re-enable global interrupts 
+	waitForADC_1: 
+		; waiting for sound
+		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		mov A, >SOUND_MODE
+		mov X, <SOUND_MODE
+		lcall _LCD_PrCString
+		
+		mov A, [thresholdValue + 0] ; display MSB 
+		lcall _LCD_PrHexByte
+		mov A, [thresholdValue + 1]	; display LSB
+		lcall _LCD_PrHexByte
+
+
+		lcall StopwatchTimer_Stop 					; start stop watch
+		lcall  DUALADC_1_fIsDataAvailable	; check if there is data available from the ADC
+	    jz    waitForADC_1					; poll until data is ready
+
+	dataReadyADC_1:
+		; data is ready, display on LCD
+		mov A, 1
+		mov X, 0
+		lcall _LCD_Position
+		mov A, >SOUND_VAL
+		mov X, <SOUND_VAL
+		lcall _LCD_PrCString
+		
+		M8C_DisableGInt   					; we want to temporarily disable global interrupts
+	    lcall DUALADC_1_iGetData1        	; Get ADC1(P01) Data (X = MSB A=LSB)
+		M8C_EnableGInt 						; re-enable global interrupts 
+		
+		; clear flags
+		lcall DUALADC_1_ClearFlag 			; clear ADC1 flags 
+		and F, FBh							; clear the CF
+		
+		; save ADC readings
+		
+		mov [soundValue + 0], X				; save MSB of ADC1 data
+		mov [soundValue + 1], A				; save LSB of ADC1 data
+		
+		; display ADC readings onto LCD
+		mov A, [soundValue + 0]
+		lcall _LCD_PrHexByte
+		mov A, [soundValue + 1]
+		lcall _LCD_PrHexByte
 	
-	; clear flags
-	lcall DUALADC_1_ClearFlag 			; clear ADC flags 
-	and F, FBh							; clear the CF
-	
-	; display ADC readings onto LCD
-	lcall _LCD_PrHexByte
-	mov A, X
-	lcall _LCD_PrHexByte
-	
-	jmp soundMode
+	compareSound_MSB:
+		mov A, [soundValue + 0]
+		cmp A, [thresholdValue + 0]					; compare MSB
+		jz compareSound_LSB							; if the MSB's are 0, then check LSB
+		jnc startTimer								; if there was no carry, 
+													; 	then soundValue MSB is greater than thresholdValue MSB,
+													;	so start timer
+		jmp waitForADC_1							; if there was a carry, 
+													;	then soundValue MSB is less than thresholdValue MSB,
+													;	so keep waiting for more sound data
+	compareSound_LSB:
+		mov A, [soundValue + 1]
+		cmp A, [thresholdValue + 1]					; compare LSB
+		jnc startTimer								; if there was no carry,
+													;	soundValue LSB is greater than thresholdValue LSB,
+													;	so start the timer
+		jmp waitForADC_1							; if there was a carry, 
+													;	then soundValue MSB is less than thresholdValue MSB,
+													;	so keep waiting for more sound data
+	startTimer:
+		mov [currSubState], 1 
+		lcall LCD_Wipe								; wipe the screen
+		lcall displayTime							; display time
+		mov A, 1									; move to second row of LCD
+		mov X, 0
+		lcall _LCD_Position	
+		mov A, >GOT_WHISTLE							
+		mov X, <GOT_WHISTLE
+		lcall _LCD_PrCString						; display WHISTLE!
+		
+		lcall StopwatchTimer_Start 					; start stop watch
+		
+		jmp soundMode
 ; --------------------------------------------
 ; ----- Pushbutton Mode (STATE 1):
 ; --------------------------------------------
@@ -553,22 +608,25 @@ TEST_STR_B:
 	ds "B TEST B!"
 	db 0x0
 SOUND_MODE:
-	ds "SOUND MODE"
+	ds "SOUND MODE  "
 	db 0x0
 WAITING_FOR_SOUND:
-	ds "WAITING..."
+	ds "W "
 	db 0x0
-GOT_SOUND:
-	ds "GOT SOUND..."
+SOUND_VAL:
+	ds "S: "
+	db 0x0
+GOT_WHISTLE:
+	ds "WHISTLE! "
 	db 0x0
 ;string literals for current resolutions to display to user
 CURRENT_RES_0P1:
-	ds "CURR RES: 0.1s
+	ds "CURR RES: 0.1s"
 	db 0x0
 CURRENT_RES_0P5:
-	ds "CURR RES: 0.5s
+	ds "CURR RES: 0.5s"
 	db 0x0
 CURRENT_RES_1P0:
-	ds "CURR RES: 1.0s
+	ds "CURR RES: 1.0s"
 	db 0x0
 .ENDLITERAL 
