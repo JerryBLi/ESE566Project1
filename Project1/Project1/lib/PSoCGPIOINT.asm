@@ -71,11 +71,16 @@ PSoC_GPIO_ISR:
 	jz downPush
 	;------ BUTTON RELEASED ------;
 	lcall PushButtonTimer_Stop
-	cmp [pushButtonDownTime],5
-	jc longButtonPush ; The button push is longer than 0.5 seconds
+	cmp [pushButtonDownTime], 6 ; Is downTime - 5 < 0? (i.e. is downTime < 5?)
+	jnc longButtonPush ; The button push is longer than 0.5 seconds
 	; ----- SHORT BUTTON PRESS
 	; Change substate in subFSM
 	shortButtonPush:
+		; Light up LEDs with 1-001 for long press
+		mov A, [Port_1_Data_SHADE]
+		and A, 0b11100001 ; Only reset LED pins
+		or A,  0b00010010 ; Bit mask LEDs we wanna light up
+		mov reg[PRT1DR], A
 		; Short buttons are complicated enough to require FSM table
 		; Row offset is currState * (max columns), so do this multiplication manually.
 		; CURRENTLY the max number of columns is 4.
@@ -91,6 +96,11 @@ PSoC_GPIO_ISR:
 	; ----- LONG BUTTON PRESS
 	; Change main FSM state
 	longButtonPush:
+		; Light up LEDs with 1-110 for long press
+		mov A, [Port_1_Data_SHADE]
+		and A, 0b11100001 ; Only reset LED pins
+		or A,  0b00011100 ; Bit mask LEDs we wanna light up
+		mov reg[PRT1DR], A
 		; subState resets between main FSM state changes, of course
 		mov [currSubState], 0
 		; Since we cycle between states (0 -> 1 -> 2 -> 3 -> 4 -> 0), we can just increment currentState
@@ -101,7 +111,13 @@ PSoC_GPIO_ISR:
 		jmp restore_GPIO_ISR ; NOW go to restore
 	;------ BUTTON PRESSED ------;
 	downPush:
+		; Light up LEDs with 1-000 for downPress
+		mov A, [Port_1_Data_SHADE]
+		and A, 0b11100001 ; Only reset LED pins
+		or A,  0b00010000 ; Bit mask LEDs we wanna light up
+		mov reg[PRT1DR], A
 		lcall PushButtonTimer_Start ; start the pushbutton timer
+		;cmp [pushButtonDownTime], 5
 		; No need for a jump, just continue to restore
 	restore_GPIO_ISR:
 		mov [pushButtonDownTime], 0 ; Reset this time back to 0.
