@@ -85,6 +85,10 @@ _main:
 	; INIT
 	; ---------------------
 	
+	; Light all LEDs to indicate startup.
+	mov A, 0b00011110
+	mov reg[PRT1DR], A
+	
 	;----Enable Interrupt for Port1 Pin 0----;
 	;Check out http://www.cypress.com/file/67321/download
 	or REG[PRT1IC0],0x80 ;P0_7 configured as change from read part 1
@@ -130,6 +134,9 @@ _main:
 	mov [shortestTime], 0xFF ;Set lower byte to FF so that it's largest possible value
 	mov [shortestTime + 1], 0xFF ;Set upper byte to FF so that it's largest possible value
 	
+	;YS - shadow
+	mov [Port_1_Data_SHADE], 0b00000000
+	
 	mov [thresholdValue+1], 3Ch		; LSB of thresholdValue
 	mov [thresholdValue+0], 00h		; MSB of thresholdValue
 	
@@ -160,32 +167,22 @@ _main:
 	mov [currNumSecs], 0
 	mov [currNumDeciSecs], 0
 	
+	lcall LCD_Wipe ; Wipe splash screen off of LCD
+	
 	; ---------------------
 	; ENTER MAIN FSM
 	; ---------------------
 	; go to soundMode(0) first
-	mov [currState], 0 
-	mov [currSubState], 0
-	jmp soundMode 
+	;mov [currState], 0 
+	;mov [currSubState], 0
+	;jmp soundMode 
 	
 	
 	; go to pushButtonMode(1) first
-;	mov [currState], 1 
-;	mov [currSubState], 0
-;	jmp pushButtonMode 
+	mov [currState], 1 
+	mov [currSubState], 0
+	jmp pushButtonMode 
 	
-	;----------------------------------------------
-	;----------------------------------------------
-	; FOR YURIY, THIS IS TO START THE TIMER
-	;----------------------------------------------
-	;----------------------------------------------
-	lcall StopwatchTimer_Start
-	
-	
-test:
-nop
-jmp test
-
 ;-------------------------------------------------------------;
 ;----------------- MAIN FINITE STATE MACHINE -----------------;
 ;-------------------------------------------------------------;
@@ -205,6 +202,12 @@ soundMode:
 	cmp [currState], 0
 	jnz changeState
 
+	; Light up LEDs with 0-001 (1)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00000010 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
+	
 	; Go to correct substate
 	cmp [currSubState], 0
 	jz waitForADC_1
@@ -289,7 +292,10 @@ soundMode:
 		
 		lcall StopwatchTimer_Start 					; start stop watch
 		
+		; -- END -- 
+		; Continue in this state
 		jmp soundMode
+		
 ; --------------------------------------------
 ; ----- Pushbutton Mode (STATE 1):
 ; --------------------------------------------
@@ -299,6 +305,13 @@ pushButtonMode:
 	; Check that we're in the right state (TODO: replace with macro?)
 	cmp [currState], 1
 	jnz changeState
+	
+	; Light up LEDs with 0-010 (2)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00000100 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
+	
 	; Go to correct substate
 	cmp [currSubState], 0
 	jz pushButtonMode_stop
@@ -316,6 +329,16 @@ pushButtonMode:
 		; Timer is stopped!
 		; -- DISPLAY -- 
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -328,12 +351,24 @@ pushButtonMode:
 		lcall StopwatchTimer_Stop ; Make sure the stopwatch is stopped
 		; TODO: We can loop forever and check for a switched state/substate manually
 		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		; -- END -- 
+		; Continue in this state
 		jmp pushButtonMode
 		
 	pushButtonMode_run:
 		; Timer is running!
 		; -- DISPLAY -- (TODO: redundant code, maybe move to psuhButton?)
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -346,6 +381,8 @@ pushButtonMode:
 		lcall StopwatchTimer_Start ; Make sure the stopwatch is stopped
 		; TODO: We can loop forever and check for a switched state/substate manually
 		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		; -- END -- 
+		; Continue in this state
 		jmp pushButtonMode
 
 ; --------------------------------------------
@@ -358,6 +395,13 @@ microphoneCalibrationMode:
 	; Check that we're in the right state
 	cmp [currState], 2
 	jnz changeState
+	
+	; Light up LEDs with 0-011 (3)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00000110 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
+	
 	; Go to correct substate
 	cmp [currSubState], 0
 	jz microphoneCalibrationMode_stop
@@ -375,6 +419,16 @@ microphoneCalibrationMode:
 		; Timer is stopped!
 		; -- DISPLAY -- 
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -393,6 +447,16 @@ microphoneCalibrationMode:
 		; Timer is running!
 		; -- DISPLAY -- (TODO: redundant code, maybe move to psuhButton?)
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -405,6 +469,9 @@ microphoneCalibrationMode:
 		lcall StopwatchTimer_Start ; Make sure the stopwatch is stopped
 		; TODO: We can loop forever and check for a switched state/substate manually
 		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		
+		; -- END -- 
+		; Continue in this state
 		jmp pushButtonMode
 
 ; --------------------------------------------
@@ -416,6 +483,12 @@ resolutionSettingMode:
 	; Check that we're in the right state
 	cmp [currState], 3
 	jnz changeState
+	
+	; Light up LEDs with 0-100 (4)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00001000 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
 
 	; Resolves substate (JL+)
 	cmp [currSubState], 1 ;if the substate is to increment the res
@@ -450,6 +523,8 @@ resolutionSettingMode:
 	mov A, >CURRENT_RES_1P0 ; Move MSB of ROM string address into A
 	mov X, <CURRENT_RES_1P0 ; Move LSB into X
 	lcall _LCD_PrCString
+	; -- END -- 
+	; Continue in this state
 	jmp resolutionSettingMode
 
 	;DO THE FOLLOWING IF THERE IS A SHORT BUTTON PRESS
@@ -479,6 +554,16 @@ memoryMode:
 	; Check that we're in the right state
 	cmp [currState], 4
 	jnz changeState
+	
+	; Light up LEDs with 0-101 (5)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00001010 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
+	
+	; -- END -- 
+	; Continue in this state
+	jmp memoryMode
 
 
 ;----------------------------------------------------;
@@ -539,13 +624,26 @@ displayTime:
 	; HRS:MIN:SEC
 	mov A, [currNumSecs]
 	lcall _LCD_PrHexByte
+	; From here, we need to determine which resolution we're gonna display
+	cmp [currRes], 2 ; Is resolution 1?
+	jz endDisplayTime ; Then don't display the res
 	; HRS:MIN:SEC:
 	mov A, ':'
 	lcall _LCD_WriteData
 	; HRS:MIN:SEC:[RES]
 	mov A, [currNumDeciSecs]
+	cmp [currRes], 0 ; Is resolution 0.1?
+	jz displayRes
+	; If we're here, then resolution is 0.5. In that case, only display if DeciSecs is 5 or 0.
+	cmp A, 5 ; If deciSecs = 5
+	jz displayRes ; display
+	cmp A, 0 ; else, if deciSecs = 0 
+	jz displayRes ; display
+	jmp endDisplayTime ; else, don't display
+	displayRes:
 	lcall _LCD_PrHexByte
 	; --- END ---
+	endDisplayTime:
 	ret
 	
 
