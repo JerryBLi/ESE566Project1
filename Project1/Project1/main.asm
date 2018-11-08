@@ -6,7 +6,6 @@ include "m8c.inc"       ; part specific constants and macros
 include "memory.inc"    ; Constants & macros for SMM/LMM and Compiler
 include "PSoCAPI.inc"   ; PSoC API definitions for all User Modules
 
-
 export _main
 
 ;---------------------------------------------;
@@ -30,7 +29,8 @@ export currState
 export currSubState
 export subStateTable
 
-export tempInit
+
+export tempInit ; ; used to skip initializations in sound mode
 
 ;-------- ALLOCATIONS ------
 area bss(ram) ;What is the name field??? What should I put?
@@ -52,8 +52,8 @@ shortestTime: blk 2 ; 2 shortest time recorded
 averageTime: blk 2 ; 2 average time recorded
 longestTime: blk 2 ; 2 longest time recorded
 
-;JL
 ;variables for multiplication
+;JL+
 multiplicationResult: blk 2
 tempTimeInSec: blk 2
 tempVar2: blk 4
@@ -74,7 +74,6 @@ memData4: blk 2
 whistleValue: blk 2	; 16 bits set initially or by microphoneCalibrationMode
 soundValue: 	blk 2 	; 16 bits from ADC
 tempInit: blk 1			; used to skip initializations
-
 ;----------------------------------------------;
 ;----------------------------------------------;
 ;----------------- MAIN ENTRY -----------------;
@@ -87,6 +86,10 @@ _main:
 	; ---------------------
 	; INIT
 	; ---------------------
+	
+	; Light all LEDs to indicate startup.
+	mov A, 0b00011110
+	mov reg[PRT1DR], A
 	
 	;----Enable Interrupt for Port1 Pin 0----;
 	;Check out http://www.cypress.com/file/67321/download
@@ -105,22 +108,22 @@ _main:
 	lcall _LCD_Init
 	
 	; Initialize PGA's and Dual ADC's
-	mov   A, PGA_1_HIGHPOWER ; enable PGA 1 in high power mode
+	mov   A, PGA_1_HIGHPOWER 		; enable PGA 1 in high power mode
     lcall PGA_1_Start			
 	
-	mov   A, PGA_2_HIGHPOWER ; enable PGA 2 in high power mode
+	mov   A, PGA_2_HIGHPOWER 		; enable PGA 2 in high power mode
     lcall PGA_2_Start
 	
-    mov   A, LPF2_1_HIGHPOWER ; enable LPF2 in high power mode
+    mov   A, LPF2_1_HIGHPOWER 		; enable LPF2 in high power mode
     lcall LPF2_1_Start
 	
-    mov   A, 7   ; set resolution to 7 Bits
+    mov   A, 7   					; set resolution to 7 Bits
     lcall  DUALADC_1_SetResolution
 
-    mov   A, DUALADC_1_HIGHPOWER  ; enable ADC in high power mode
+    mov   A, DUALADC_1_HIGHPOWER  	; enable ADC in high power mode
     lcall  DUALADC_1_Start
 
-    mov   A, 00h          ; use ADC in continuous sampling mode
+    mov   A, 00h          			; use ADC in continuous sampling mode
     lcall  DUALADC_1_GetSamples
 	
 	; Initialize variables in RAM
@@ -129,14 +132,16 @@ _main:
 	mov [currNumSecs], 0
 	mov [currNumDeciSecs], 0
 	
-	mov [whistleValue+1], 45h		; LSB of whistleValue	
-	mov [whistleValue+0], 00h		; MSB of whistleValue
-	
-	;JL
+	;JL+
 	mov [shortestTime], 0xFF ;Set lower byte to FF so that it's largest possible value
 	mov [shortestTime + 1], 0xFF ;Set upper byte to FF so that it's largest possible value
 	
-	mov [tempInit], 0
+	;YS - shadow
+	mov [Port_1_Data_SHADE], 0b00000000
+	
+	mov [whistleValue+1], 3Ch		; LSB of whistleValue
+	mov [whistleValue+0], 00h		; MSB of whistleValue
+	
 	; ---------------------
 	; SPLASH SCREEN
 	; ---------------------
@@ -159,42 +164,32 @@ _main:
 		lcall StopwatchTimer_Start
 		cmp [currNumSecs], 2
 		jc splash_delay ; If carry, that means currNumSecs < 2, so loop
+		
 	call StopwatchTimer_Stop
 	mov [currNumSecs], 0
 	mov [currNumDeciSecs], 0
+	
+	lcall LCD_Wipe ; Wipe splash screen off of LCD
 	
 	; ---------------------
 	; ENTER MAIN FSM
 	; ---------------------
 	; go to soundMode(0) first
-	mov [currState], 0 
-	mov [currSubState], 0
-	jmp soundMode 
+	;mov [currState], 0 
+	;mov [currSubState], 0
+	;jmp soundMode 
 	
 	
 	; go to pushButtonMode(1) first
-;	mov [currState], 1 
-;	mov [currSubState], 0
-;	jmp pushButtonMode 
+	mov [currState], 1 
+	mov [currSubState], 0
+	jmp pushButtonMode 
 	
-	;----------------------------------------------
-	;----------------------------------------------
-	; FOR YURIY, THIS IS TO START THE TIMER
-	;----------------------------------------------
-	;----------------------------------------------
-	lcall StopwatchTimer_Start
-	
-	
-test:
-nop
-jmp test
-
 ;-------------------------------------------------------------;
 ;----------------- MAIN FINITE STATE MACHINE -----------------;
 ;-------------------------------------------------------------;
 ; Each procedure will have to check if "currentState" matches the procedure
 ; If currentState indictes a different state, call procedure to change states.
-
 
 ; --------------------------------------------
 ; ----- Sound Mode (STATE 0):
@@ -210,6 +205,12 @@ soundMode:
 	; Check that we're in the right state
 	cmp [currState], 0
 	jnz changeState
+
+	; Light up LEDs with 0-001 (1)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00000010 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
 	
 	; Go to correct substate
 	cmp [currSubState], 0
@@ -355,6 +356,8 @@ soundMode:
 		; ---------
 		mov [currSubState], 0 	; go to timer stopped state 
 		jmp soundMode
+		
+		
 ; --------------------------------------------
 ; ----- Pushbutton Mode (STATE 1):
 ; --------------------------------------------
@@ -364,6 +367,13 @@ pushButtonMode:
 	; Check that we're in the right state (TODO: replace with macro?)
 	cmp [currState], 1
 	jnz changeState
+	
+	; Light up LEDs with 0-010 (2)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00000100 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
+	
 	; Go to correct substate
 	cmp [currSubState], 0
 	jz pushButtonMode_stop
@@ -381,6 +391,16 @@ pushButtonMode:
 		; Timer is stopped!
 		; -- DISPLAY -- 
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -393,12 +413,24 @@ pushButtonMode:
 		lcall StopwatchTimer_Stop ; Make sure the stopwatch is stopped
 		; TODO: We can loop forever and check for a switched state/substate manually
 		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		; -- END -- 
+		; Continue in this state
 		jmp pushButtonMode
 		
 	pushButtonMode_run:
 		; Timer is running!
 		; -- DISPLAY -- (TODO: redundant code, maybe move to psuhButton?)
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -411,6 +443,8 @@ pushButtonMode:
 		lcall StopwatchTimer_Start ; Make sure the stopwatch is stopped
 		; TODO: We can loop forever and check for a switched state/substate manually
 		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		; -- END -- 
+		; Continue in this state
 		jmp pushButtonMode
 
 ; --------------------------------------------
@@ -423,6 +457,13 @@ microphoneCalibrationMode:
 	; Check that we're in the right state
 	cmp [currState], 2
 	jnz changeState
+	
+	; Light up LEDs with 0-011 (3)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00000110 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
+	
 	; Go to correct substate
 	cmp [currSubState], 0
 	jz microphoneCalibrationMode_stop
@@ -440,6 +481,16 @@ microphoneCalibrationMode:
 		; Timer is stopped!
 		; -- DISPLAY -- 
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -458,6 +509,16 @@ microphoneCalibrationMode:
 		; Timer is running!
 		; -- DISPLAY -- (TODO: redundant code, maybe move to psuhButton?)
 		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+		; DEBUG: DISPLAY DOWN TIME
+		mov A, 0
+		mov X, 14
+		lcall _LCD_Position
+		mov A, [pushButtonDownTime]
+		lcall _LCD_PrHexByte
+		mov A, 0
+		mov X, 0
+		lcall _LCD_Position
+		; END DEBUG
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -470,6 +531,9 @@ microphoneCalibrationMode:
 		lcall StopwatchTimer_Start ; Make sure the stopwatch is stopped
 		; TODO: We can loop forever and check for a switched state/substate manually
 		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		
+		; -- END -- 
+		; Continue in this state
 		jmp pushButtonMode
 
 ; --------------------------------------------
@@ -481,9 +545,17 @@ resolutionSettingMode:
 	; Check that we're in the right state
 	cmp [currState], 3
 	jnz changeState
+	
+	; Light up LEDs with 0-100 (4)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00001000 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
 
+	; Resolves substate (JL+)
 	cmp [currSubState], 1 ;if the substate is to increment the res
-	jz resolutionSettingMode_changeMode
+	jz resolutionSettingMode_changeMode ; Substate (1) = change Mode
+	; Else (substate (0)) we go straight to display mode
 	
 	;Display the current resolution
 	resolutionSettingMode_displayMode:
@@ -513,6 +585,8 @@ resolutionSettingMode:
 	mov A, >CURRENT_RES_1P0 ; Move MSB of ROM string address into A
 	mov X, <CURRENT_RES_1P0 ; Move LSB into X
 	lcall _LCD_PrCString
+	; -- END -- 
+	; Continue in this state
 	jmp resolutionSettingMode
 
 	;DO THE FOLLOWING IF THERE IS A SHORT BUTTON PRESS
@@ -542,6 +616,16 @@ memoryMode:
 	; Check that we're in the right state
 	cmp [currState], 4
 	jnz changeState
+	
+	; Light up LEDs with 0-101 (5)
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  0b00001010 ; Bit mask LEDs we wanna light up
+	mov reg[PRT1DR], A
+	
+	; -- END -- 
+	; Continue in this state
+	jmp memoryMode
 
 
 ;----------------------------------------------------;
@@ -566,10 +650,11 @@ changeState:
 	cmp A, 4
 	jz memoryMode
 	; If we're here, currentState is invalid.
-	;JL
-	mov [currState], 0
-	ljmp soundMode
-	; Display error text.
+	; -- Silently handle the error by just going to default state.
+	;JL+
+	;mov [currState], 0
+	;ljmp soundMode
+	; -- Display error text.
 	lcall LCD_Wipe ; TODO: lcall necessary, or just call?
 	mov A, >BAD_STATE_ERROR
 	mov X, <BAD_STATE_ERROR
@@ -601,13 +686,26 @@ displayTime:
 	; HRS:MIN:SEC
 	mov A, [currNumSecs]
 	lcall _LCD_PrHexByte
+	; From here, we need to determine which resolution we're gonna display
+	cmp [currRes], 2 ; Is resolution 1?
+	jz endDisplayTime ; Then don't display the res
 	; HRS:MIN:SEC:
 	mov A, ':'
 	lcall _LCD_WriteData
 	; HRS:MIN:SEC:[RES]
 	mov A, [currNumDeciSecs]
+	cmp [currRes], 0 ; Is resolution 0.1?
+	jz displayRes
+	; If we're here, then resolution is 0.5. In that case, only display if DeciSecs is 5 or 0.
+	cmp A, 5 ; If deciSecs = 5
+	jz displayRes ; display
+	cmp A, 0 ; else, if deciSecs = 0 
+	jz displayRes ; display
+	jmp endDisplayTime ; else, don't display
+	displayRes:
 	lcall _LCD_PrHexByte
 	; --- END ---
+	endDisplayTime:
 	ret
 	
 
@@ -641,7 +739,7 @@ LCD_Wipe:
 	; --- END ---
 	ret
 	
-;JL
+;JL+
 ;Save Time Data:
 ;Saves the current time in seconds for memory mode
 ;http://www.cypress.com/file/133371/download
@@ -650,16 +748,12 @@ saveTimeData:
 	; 3->4 ; 2->3 ; 1->2 ; 0->1
 	mov [memData4], [memData3]
 	mov [memData4 + 1], [memData3 + 1]
-
 	mov [memData3], [memData2]
 	mov [memData3 + 1], [memData2 + 1]
-
 	mov [memData2], [memData1]
 	mov [memData2 + 1], [memData1 + 1]
-
 	mov [memData1], [memData0]
 	mov [memData1 + 1], [memData0 + 1]
-
 	;tempVar = Hours * 3600
 	;take a look at the section 2.19 of the doc above
 	mov A, >tempVar
@@ -678,34 +772,28 @@ saveTimeData:
 	push A
 	lcall mulu_16x16_32
 	add SP, 250 ;pop the stack ?
-
 	;add the result in tempVar to tempTimeInSec
 	mov A, [tempVar]
 	add [tempTimeInSec], A
 	mov A, [tempVar + 1]
 	adc [tempTimeInSec + 1], A
-
 	;Minutes * 60
 	;take a look at the section 2.18 of the doc above
 	mov X, 60 ;60 part of equation
 	mov A, currNumMins ;Minutes part of equation
 	lcall mulu_8x8_16
-
 	;add the result to tempTimeInSec
 	adc [tempTimeInSec + 1], A
 	mov A, X
 	add [tempTimeInSec], A
 	
-
 	;add seconds
 	mov A, [currNumSecs]
 	add [tempTimeInSec], A
 	adc [tempTimeInSec + 1], 0
-
 	;save to first memory slot
 	mov [memData0], [tempTimeInSec]
 	mov [memData0 + 1], [tempTimeInSec + 1]
-
 	;is it the smallest value?
 	saveTimeData_smallest_upper:
 		mov A, [memData0 + 1]
@@ -737,15 +825,13 @@ saveTimeData:
 	saveTimeData_isLargest:
 		mov [longestTime], [memData0]
 		mov [longestTime + 1], [memData0 + 1]
-
 	;reset temp data
 	saveTimeData_end:
 	mov [tempTimeInSec], 0
 	mov [tempTimeInSec + 1], 0
-
 ret
 
-;JL 
+;JL+
 ;Calculate Average of Data
 ;Takes the 5 data points and calculates the average
 calculateAverageOfData:
@@ -838,8 +924,6 @@ ret
 
 .terminate:
     jmp .terminate
-
-
 
 ;----------------------------------------------------;
 ; --------------- CONSTANT STRINGS ------------------;
