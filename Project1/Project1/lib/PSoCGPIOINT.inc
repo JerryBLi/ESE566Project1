@@ -23,6 +23,25 @@ PushButton_IntCtrl_0_ADDR:	equ	106h
 PushButton_IntCtrl_1_ADDR:	equ	107h
 PushButton_IntEn_ADDR:	equ	5h
 PushButton_MASK:	equ	1h
+; PushButton_Data access macros
+;   GetPushButton_Data macro, return in a
+macro GetPushButton_Data
+	mov		a,[Port_1_Data_SHADE]
+	and		a, 1h
+endm
+;   SetPushButton_Data macro
+macro SetPushButton_Data
+	or		[Port_1_Data_SHADE], 1h
+	mov		a, [Port_1_Data_SHADE]
+	mov		reg[PushButton_Data_ADDR], a
+endm
+;   ClearPushButton_Data macro
+macro ClearPushButton_Data
+	and		[Port_1_Data_SHADE], ~1h
+	mov		a, [Port_1_Data_SHADE]
+	mov		reg[PushButton_Data_ADDR], a
+endm
+
 ; AnalogColumn_InputMUX_3 address and mask equates
 AnalogColumn_InputMUX_3_Data_ADDR:	equ	0h
 AnalogColumn_InputMUX_3_DriveMode_0_ADDR:	equ	100h

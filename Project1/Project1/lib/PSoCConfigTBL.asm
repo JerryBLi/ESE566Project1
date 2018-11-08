@@ -103,6 +103,7 @@ LoadConfigTBL_project1_Bank0:
 	db		27h, 04h		;PushButtonTimer_CONTROL_MSB_REG(DBB01CR0)
 	db		25h, 0ch		;PushButtonTimer_PERIOD_MSB_REG(DBB01DR1)
 	db		26h, 00h		;PushButtonTimer_COMPARE_MSB_REG(DBB01DR2)
+;  Instance name SHADOWREGS_1, User Module SHADOWREGS
 ;  Instance name StopwatchTimer, User Module Timer16
 ;       Instance name StopwatchTimer, Block Name TIMER16_LSB(DCB02)
 	db		2bh, 00h		;StopwatchTimer_CONTROL_LSB_REG(DCB02CR0)
@@ -192,11 +193,12 @@ LoadConfigTBL_project1_Bank1:
 ;       Instance name PushButtonTimer, Block Name TIMER16_LSB(DBB00)
 	db		20h, 00h		;PushButtonTimer_FUNC_LSB_REG(DBB00FN)
 	db		21h, 07h		;PushButtonTimer_INPUT_LSB_REG(DBB00IN)
-	db		22h, c0h		;PushButtonTimer_OUTPUT_LSB_REG(DBB00OU)
+	db		22h, 00h		;PushButtonTimer_OUTPUT_LSB_REG(DBB00OU)
 ;       Instance name PushButtonTimer, Block Name TIMER16_MSB(DBB01)
 	db		24h, 28h		;PushButtonTimer_FUNC_MSB_REG(DBB01FN)
 	db		25h, 37h		;PushButtonTimer_INPUT_MSB_REG(DBB01IN)
-	db		26h, c0h		;PushButtonTimer_OUTPUT_MSB_REG(DBB01OU)
+	db		26h, 00h		;PushButtonTimer_OUTPUT_MSB_REG(DBB01OU)
+;  Instance name SHADOWREGS_1, User Module SHADOWREGS
 ;  Instance name StopwatchTimer, User Module Timer16
 ;       Instance name StopwatchTimer, Block Name TIMER16_LSB(DCB02)
 	db		28h, 00h		;StopwatchTimer_FUNC_LSB_REG(DCB02FN)
@@ -244,10 +246,10 @@ LoadConfigTBL_project1_Ordered:
 	mov	reg[01h], 00h		; Port_0_IntEn register (PRT0IE)
 	mov	reg[04h], 00h		; Port_1_Data register (PRT1DR)
 	M8C_SetBank1
-	mov	reg[04h], 00h		; Port_1_DriveMode_0 register (PRT1DM0)
-	mov	reg[05h], feh		; Port_1_DriveMode_1 register (PRT1DM1)
+	mov	reg[04h], 1eh		; Port_1_DriveMode_0 register (PRT1DM0)
+	mov	reg[05h], e0h		; Port_1_DriveMode_1 register (PRT1DM1)
 	M8C_SetBank0
-	mov	reg[07h], feh		; Port_1_DriveMode_2 register (PRT1DM2)
+	mov	reg[07h], e0h		; Port_1_DriveMode_2 register (PRT1DM2)
 	mov	reg[06h], 00h		; Port_1_GlobalSelect register (PRT1GS)
 	M8C_SetBank1
 	mov	reg[06h], 01h		; Port_1_IntCtrl_0 register (PRT1IC0)

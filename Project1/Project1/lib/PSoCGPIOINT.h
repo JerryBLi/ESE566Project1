@@ -32,6 +32,10 @@ BYTE			PushButton_IntCtrl_1_ADDR;
 #pragma	ioport	PushButton_IntEn_ADDR:	0x5
 BYTE			PushButton_IntEn_ADDR;
 #define PushButton_MASK 0x1
+// PushButton Shadow defines
+//   PushButton_DataShadow define
+extern unsigned char Port_1_Data_SHADE;
+#define PushButton_DataShadow (*(unsigned char*)&Port_1_Data_SHADE)
 // AnalogColumn_InputMUX_3 address and mask defines
 #pragma	ioport	AnalogColumn_InputMUX_3_Data_ADDR:	0x0
 BYTE			AnalogColumn_InputMUX_3_Data_ADDR;

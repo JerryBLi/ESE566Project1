@@ -390,15 +390,17 @@ R 00 00 00 02
 .end
 .start
 XH
-H 1 areas 7 global symbols
+H 1 areas 9 global symbols
 M psocgpioint.asm
 S PushButtonTimer_Stop Ref0000
 S subStateTable Ref0000
+S tempInit Ref0000
 S pushButtonDownTime Ref0000
 S PushButtonTimer_Start Ref0000
 S currState Ref0000
+S Port_1_Data_SHADE Ref0000
 S currSubState Ref0000
-A text size 40 flags 0
+A text size 5E flags 0
 dbfile lib/psocgpioint.asm
 dbfunc 0 ? 0 I
 dbline 3F 0
@@ -412,27 +414,41 @@ dbline 47 B
 dbline 49 D
 dbline 4A 10
 dbline 4B 13
-dbline 52 15
-dbline 53 17
-dbline 54 19
-dbline 55 1B
+dbline 50 15
+dbline 51 17
+dbline 52 19
+dbline 53 1B
 dbline 57 1D
 dbline 58 1F
 dbline 59 21
 dbline 5A 23
-dbline 5F 25
-dbline 61 28
-dbline 62 2A
-dbline 63 2D
-dbline 64 2F
-dbline 65 32
-dbline 68 34
-dbline 6B 37
-dbline 6D 3A
-dbline 6E 3B
-dbline 6F 3D
-dbline 70 3E
-dbline 74 3F
+dbline 5C 25
+dbline 5D 27
+dbline 5E 29
+dbline 5F 2B
+dbline 60 2E
+dbline 65 30
+dbline 66 32
+dbline 67 34
+dbline 68 36
+dbline 6A 38
+dbline 6C 3B
+dbline 6D 3D
+dbline 6E 40
+dbline 6F 42
+dbline 70 45
+dbline 71 48
+dbline 75 4A
+dbline 76 4C
+dbline 77 4E
+dbline 78 50
+dbline 79 52
+dbline 7D 55
+dbline 7F 58
+dbline 80 59
+dbline 81 5B
+dbline 82 5C
+dbline 86 5D
 dbfile ./lib/PSoCGPIOINT.inc
 dbfunc 0 ? 0 I
 dbfile lib/psocgpioint.asm
@@ -440,20 +456,26 @@ dbfunc 0 ? 0 I
 dbfile C:/PROGRA~2/Cypress/PSOCDE~1/5.4/Common/CYPRES~1/tools/include/CY8C29~1/m8c.inc
 dbfunc 0 ? 0 I
 S PSoC_GPIO_ISR Def0000
-T 00 00 08 10 5D D0 08 5D 04 21 01 39 01 A0 28 7C
+T 00 00 08 10 5D D0 08 5D 04 21 01 39 01 A0 3E 7C
 R 00 00 00 00
-T 00 0E 00 00 3C 00 00 05 C0 11 51 00 00 02
-R 00 00 00 00 02 02 00 00 03 05 00 02 03 0B 00 04
-T 00 18 00 00 02 00 00 02 00 00 02
-R 00 00 00 00 03 02 00 04 03 05 00 04 03 08 00 04
-T 00 1E 00 00 F0 00 53
-R 00 00 00 00 03 02 00 05 06 04 00 01 00 00
-T 00 22 00 00 80 13 55 00 00 00 76 00 00 3C
-R 00 00 00 00 03 02 00 05 03 07 00 05 03 0B 00 04
-T 00 2B 00 00 05 C0 09 55 00 00 00 80 04 7C 00 00
-R 00 00 00 00 03 02 00 04 03 08 00 04 02 0E 00 03
-T 00 37 55 00 00 00 18 60 D0 20 18 7E
-R 00 00 00 00 03 03 00 02
+T 00 0E 00 00 3C 00 00 06 D0 1C 51 00 00 21 E1 29
+R 00 00 00 00 02 02 00 00 03 05 00 03 03 0B 00 06
+T 00 1A 12 60 04 51 00 00 02 00 00 02 00 00 02
+R 00 00 00 00 03 06 00 05 03 09 00 05 03 0C 00 05
+T 00 24 00 00 02 00 00
+R 00 00 00 00 03 02 00 05 03 05 00 07
+T 00 27 F0 00 53 00 00 55
+R 00 00 00 00 06 02 00 01 00 00 03 05 00 07
+T 00 2C 00 00 00 80 26 51 00 00 21 E1 29 1C 60 04
+R 00 00 00 00 03 02 00 02 03 08 00 06
+T 00 38 55 00 00 00 76 00 00 3C 00 00 05 C0 14 55
+R 00 00 00 00 03 03 00 07 03 07 00 05 03 0A 00 05
+T 00 43 00 00 00 55 00 00 00 80 0C 51 00 00 21 E1
+R 00 00 00 00 03 02 00 05 03 06 00 02 03 0C 00 06
+T 00 4E 29 10 60 04 7C 00 00 55 00 00 00 18 60 D0
+R 00 00 00 00 02 07 00 04 03 0A 00 03
+T 00 5B 20 18 7E
+R 00 00 00 00
 .end
 .start
 XH
@@ -471,104 +493,104 @@ A psoc_config size 105 flags 0
 dbfile lib/psocconfigtbl.asm
 dbfunc 0 ? 0 I
 dbline 2 0
-dbline E9 2
+dbline EB 2
 dbline 2 5
-dbline EB 7
-dbline EC A
+dbline ED 7
+dbline EE A
 dbline 2 D
-dbline EE F
-dbline EF 12
+dbline F0 F
+dbline F1 12
 dbline 2 15
-dbline F1 17
-dbline F2 1A
+dbline F3 17
+dbline F4 1A
 dbline 2 1D
-dbline F4 1F
-dbline F5 22
+dbline F6 1F
+dbline F7 22
 dbline 2 25
-dbline F7 27
-dbline F8 2A
+dbline F9 27
+dbline FA 2A
 dbline 2 2D
-dbline FA 2F
-dbline FB 32
+dbline FC 2F
+dbline FD 32
 dbline 2 35
-dbline FD 37
-dbline FE 3A
+dbline FF 37
+dbline 100 3A
 dbline 2 3D
-dbline 100 3F
-dbline 101 42
+dbline 102 3F
+dbline 103 42
 dbline 2 45
-dbline 103 47
-dbline 104 4A
+dbline 105 47
+dbline 106 4A
 dbline 2 4D
-dbline 106 4F
-dbline 107 52
+dbline 108 4F
+dbline 109 52
 dbline 2 55
-dbline 109 57
-dbline 10A 5A
+dbline 10B 57
+dbline 10C 5A
 dbline 2 5D
-dbline 10C 5F
-dbline 10D 62
+dbline 10E 5F
+dbline 10F 62
 dbline 2 65
-dbline 10F 67
-dbline 110 6A
+dbline 111 67
+dbline 112 6A
 dbline 2 6D
-dbline 112 6F
-dbline 113 72
+dbline 114 6F
+dbline 115 72
 dbline 2 75
-dbline 115 77
-dbline 116 7A
+dbline 117 77
+dbline 118 7A
 dbline 2 7D
-dbline 118 7F
-dbline 119 82
+dbline 11A 7F
+dbline 11B 82
 dbline 2 85
-dbline 11B 87
-dbline 11C 8A
+dbline 11D 87
+dbline 11E 8A
 dbline 2 8D
-dbline 11E 8F
-dbline 11F 92
+dbline 120 8F
+dbline 121 92
 dbline 2 95
-dbline 121 97
-dbline 122 9A
+dbline 123 97
+dbline 124 9A
 dbline 2 9D
-dbline 124 9F
-dbline 125 A2
+dbline 126 9F
+dbline 127 A2
 dbline 2 A5
-dbline 127 A7
-dbline 128 AA
+dbline 129 A7
+dbline 12A AA
 dbline 2 AD
-dbline 12A AF
-dbline 12B B2
+dbline 12C AF
+dbline 12D B2
 dbline 2 B5
-dbline 12D B7
-dbline 12E BA
+dbline 12F B7
+dbline 130 BA
 dbline 2 BD
-dbline 130 BF
-dbline 131 C2
+dbline 132 BF
+dbline 133 C2
 dbline 2 C5
-dbline 133 C7
-dbline 134 CA
+dbline 135 C7
+dbline 136 CA
 dbline 2 CD
-dbline 136 CF
-dbline 137 D2
+dbline 138 CF
+dbline 139 D2
 dbline 2 D5
-dbline 139 D7
-dbline 13A DA
+dbline 13B D7
+dbline 13C DA
 dbline 2 DD
-dbline 13C DF
-dbline 13D E2
+dbline 13E DF
+dbline 13F E2
 dbline 2 E5
-dbline 13F E7
-dbline 140 EA
+dbline 141 E7
+dbline 142 EA
 dbline 2 ED
-dbline 142 EF
-dbline 143 F2
+dbline 144 EF
+dbline 145 F2
 dbline 2 F5
-dbline 145 F7
-dbline 146 FA
+dbline 147 F7
+dbline 148 FA
 dbline 2 FD
-dbline 148 FF
+dbline 14A FF
 dbline 2 102
-dbline 14A 104
+dbline 14C 104
 S LoadConfigTBL_project1_Ordered Def0000
 T 00 00 90 90 91 A0 92 61 93 F0 98 90 99 A0 9A 60
 R 00 00 00 01
@@ -602,9 +624,9 @@ T 00 C4 CE 00 6C 00 6D 00 6E 00 6F 00 FF 40 21 41
 R 00 00 00 01
 T 00 D2 45 42 40 4C 21 4D 65 4E 40 44 01 45 15 46
 R 00 00 00 01
-T 00 E0 40 48 21 49 35 4A 40 20 00 21 07 22 C0 24
+T 00 E0 40 48 21 49 35 4A 40 20 00 21 07 22 00 24
 R 00 00 00 01
-T 00 EE 28 25 37 26 C0 28 00 29 07 2A 00 2C 28 2D
+T 00 EE 28 25 37 26 00 28 00 29 07 2A 00 2C 28 2D
 R 00 00 00 01
 T 00 FC 37 2E 00 61 00 69 00 60 00 62 BC 67 33 68
 R 00 00 00 01
@@ -616,9 +638,9 @@ T 00 00 70 EF 62 00 00 71 10 62 00 00 62 01 FF 70
 R 00 00 00 02
 T 00 0E EF 62 03 FF 62 02 00 71 10 62 02 00 62 03
 R 00 00 00 02
-T 00 1C 00 70 EF 62 01 00 62 04 00 71 10 62 04 00
+T 00 1C 00 70 EF 62 01 00 62 04 00 71 10 62 04 1E
 R 00 00 00 02
-T 00 2A 62 05 FE 70 EF 62 07 FE 62 06 00 71 10 62
+T 00 2A 62 05 E0 70 EF 62 07 E0 62 06 00 71 10 62
 R 00 00 00 02
 T 00 38 06 01 62 07 01 70 EF 62 05 01 62 08 00 71
 R 00 00 00 02
@@ -653,7 +675,7 @@ R 00 00 00 02
 .end
 .start
 XH
-H 3 areas F global symbols
+H 3 areas 11 global symbols
 M psocconfig.asm
 S LoadConfigTBL_project1_Bank0 Ref0000
 S LoadConfigTBL_project1_Bank1 Ref0000
@@ -671,100 +693,103 @@ dbfile lib/psocconfig.asm
 dbfunc 0 ? 0 I
 dbfile C:/PROGRA~2/Cypress/PSOCDE~1/5.4/Common/CYPRES~1/tools/include/CY8C29~1/m8c.inc
 dbfunc 0 ? 0 I
-A psoc_config size 6B flags 0
+A psoc_config size 6E flags 0
 dbfile lib/psocconfig.asm
 dbfunc 0 ? 0 I
-dbline 41 0
-dbline 42 3
-dbline 43 6
-dbline 45 9
-dbline 46 C
-dbline 4A F
-dbline 63 10
-dbline 2 11
-dbline 65 13
-dbline 66 15
+dbline 43 0
+dbline 44 3
+dbline 45 6
+dbline 46 9
+dbline 48 C
+dbline 49 F
+dbline 4D 12
+dbline 66 13
+dbline 2 14
 dbline 68 16
 dbline 69 18
-dbline 6A 1A
-dbline 6C 1D
-dbline 6D 1F
+dbline 6B 19
+dbline 6C 1B
+dbline 6D 1D
 dbline 6F 20
 dbline 70 22
-dbline 71 24
-dbline 2 27
-dbline 74 29
-dbline 77 2A
-dbline 8D 2B
-dbline 8E 2D
-dbline 8F 2E
-dbline 90 2F
+dbline 72 23
+dbline 73 25
+dbline 74 27
+dbline 2 2A
+dbline 77 2C
+dbline 7A 2D
+dbline 90 2E
 dbline 91 30
-dbline 92 33
-dbline 93 35
-dbline 95 38
-dbline 96 39
-dbline 2 3A
-dbline 2 3C
-dbline 9B 3F
-dbline 9C 40
-dbline 9D 41
+dbline 92 31
+dbline 93 32
+dbline 94 33
+dbline 95 36
+dbline 96 38
+dbline 98 3B
+dbline 99 3C
+dbline 2 3D
+dbline 2 3F
 dbline 9E 42
-dbline 9F 44
-dbline A0 46
-dbline A1 47
-dbline A2 4A
-dbline 2 4C
-dbline A5 4E
-dbline A6 50
-dbline A7 51
-dbline A8 52
+dbline 9F 43
+dbline A0 44
+dbline A1 45
+dbline A2 47
+dbline A3 49
+dbline A4 4A
+dbline A5 4D
+dbline 2 4F
+dbline A8 51
 dbline A9 53
-dbline AA 55
-dbline AB 56
-dbline AC 57
+dbline AA 54
+dbline AB 55
+dbline AC 56
 dbline AD 58
 dbline AE 59
-dbline AF 5B
-dbline B0 5D
-dbline B1 5E
-dbline B2 5F
+dbline AF 5A
+dbline B0 5B
+dbline B1 5C
+dbline B2 5E
 dbline B3 60
-dbline B4 62
-dbline B6 64
-dbline 3 66
-dbline 4 68
-dbline B8 6A
-S LoadConfig_project1 Def0010
+dbline B4 61
+dbline B5 62
+dbline B6 63
+dbline B7 65
+dbline B9 67
+dbline 3 69
+dbline 4 6B
+dbline BB 6D
+S LoadConfig_project1 Def0013
 S LoadConfigInit Def0000
-S _LoadConfig_project1 Def0010
+S _LoadConfig_project1 Def0013
 S _LoadConfigInit Def0000
-A InterruptRAM size 3 flags 20
+A InterruptRAM size 4 flags 20
 S _NO_SHADOW Def0000
-S _Port_2_Data_SHADE Def0000
-S Port_2_DriveMode_0_SHADE Def0001
-S Port_2_DriveMode_1_SHADE Def0002
+S _Port_1_Data_SHADE Def0000
+S _Port_2_Data_SHADE Def0001
+S Port_2_DriveMode_0_SHADE Def0002
+S Port_2_DriveMode_1_SHADE Def0003
 S NO_SHADOW Def0000
-S _Port_2_DriveMode_0_SHADE Def0001
-S _Port_2_DriveMode_1_SHADE Def0002
-S Port_2_Data_SHADE Def0000
-T 00 00 55 00 00 00 55 00 01 7F 55 00 02 80 7C
+S _Port_2_DriveMode_0_SHADE Def0002
+S _Port_2_DriveMode_1_SHADE Def0003
+S Port_1_Data_SHADE Def0000
+S Port_2_Data_SHADE Def0001
+T 00 00 55 00 00 00 55 00 01 00 55 00 02 7F 55
 R 00 00 00 01 01 03 00 02 01 07 00 02 01 0B 00 02
-T 00 0A 00 10 7C 00 00 7F 10 70 EF 50 00 67 50
-R 00 00 00 01 00 02 00 01 02 05 00 02
-T 00 17 00 00 57 00 00 7C 00 2B 50 01 67 50
-R 00 00 00 01 43 02 00 00 03 05 00 00 00 08 00 01
-T 00 21 00 00 57 00 00 7C 00 2B 70 EF 20 7F 38 02
-R 00 00 00 01 43 02 00 01 03 05 00 01 00 08 00 01
-T 00 2D 10 08 4F 56 FC 00 D0 04 56 FC 01 18 20 70
+T 00 0A 00 03 80 7C 00 13 7C 00 00 7F 10 70 EF 50
+R 00 00 00 01 01 02 00 02 00 06 00 01 02 09 00 02
+T 00 17 00 67 50 00 00 57 00 00 7C 00 2E 50 01 67
+R 00 00 00 01 43 05 00 00 03 08 00 00 00 0B 00 01
+T 00 23 50 00 00 57 00 00 7C 00 2E 70 EF 20 7F 38
+R 00 00 00 01 43 03 00 01 03 06 00 01 00 09 00 01
+T 00 2F 02 10 08 4F 56 FC 00 D0 04 56 FC 01 18 20
 R 00 00 00 01
-T 00 3B EF 62 E3 00 10 08 28 39 FF A0 1F 4F 48 FC
+T 00 3D 70 EF 62 E3 00 10 08 28 39 FF A0 1F 4F 48
 R 00 00 00 01
-T 00 49 01 A0 03 71 10 54 FD 18 20 75 09 00 10 08
+T 00 4B FC 01 A0 03 71 10 54 FD 18 20 75 09 00 10
 R 00 00 00 01
-T 00 57 28 4F 59 FD 61 00 18 20 75 09 00 8F D7 38
+T 00 59 08 28 4F 59 FD 61 00 18 20 75 09 00 8F D7
 R 00 00 00 01
-T 00 65 FC 70 3F 71 C0 7F
+T 00 67 38 FC 70 3F 71 C0 7F
 R 00 00 00 01
 .end
 .start
