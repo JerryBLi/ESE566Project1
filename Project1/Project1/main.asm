@@ -9,6 +9,40 @@ include "PSoCAPI.inc"   ; PSoC API definitions for all User Modules
 export _main
 
 ;---------------------------------------------;
+;----------------- MACROS --------------------;
+;---------------------------------------------;
+
+; Input: @0 - Bit mask (0b000_ _ _ _0), where the 4 spaces are 1 to light LEDs
+macro LIGHT_LEDS
+	mov A, [Port_1_Data_SHADE]
+	and A, 0b11100001 ; Only reset LED pins
+	or A,  @0 ; Bit mask LEDs we wanna light up (with input argument to macro)
+	mov reg[PRT1DR], A
+endm 
+
+; led_pos (row), (column) sets the LED to be at a specific row or column
+macro LCD_POS
+	mov A, @0
+	mov X, @1
+	lcall _LCD_Position
+endm 
+
+; led_pos (STRING_LABEL) prints the specified text at the specified position.
+macro LCD_PRINT
+	mov A, >@0
+	mov X, <@0
+	lcall _LCD_PrCString
+endm 
+
+; Reset stopwatch time
+macro RESET_TIME
+	mov [currNumDeciSecs], 0
+	mov [currNumSecs], 0
+	mov [currNumMins], 0
+	mov [currNumHours], 0
+endm
+
+;---------------------------------------------;
 ;---------------------------------------------;
 ;----------------- VARIABLES -----------------;
 ;---------------------------------------------;
@@ -39,12 +73,15 @@ currSubState: blk 1 ; 1 byte for current substate (internal states in main state
 soundAvg: blk 1 ; ???? HOW MANY BYTES TO STORE SOUND AVG??
 currRes: blk 1 ; 1 byte to store the current resolution of timer
 
+pushButtonDownTime: blk 1;how long has the pushbutton been pressed in 1/10th of sec?
+
 ;Variables to store the current stopwatch time
 currNumHours: blk 1 ; 1 byte to store number of hours
 currNumMins: blk 1 ; 1 byte to store number of minutes
 currNumSecs: blk 1 ; 1 byte to store number of seconds
 currNumDeciSecs: blk 1 ; 1 byte to store number of deci-seconds
 
+measDone: blk 1 ; Indicate that a measurement has been done.
 
 ;this section is for the metrics
 ;WE NEED TO TALK ABOUT HOW TO STORE THIS
@@ -58,7 +95,6 @@ multiplicationResult: blk 2
 tempTimeInSec: blk 2
 tempVar2: blk 4
 
-pushButtonDownTime: blk 1;how long has the pushbutton been pressed in 1/10th of sec?
 
 tempVar: blk 4
 tempByte: blk 1
@@ -88,8 +124,7 @@ _main:
 	; ---------------------
 	
 	; Light all LEDs to indicate startup.
-	mov A, 0b00011110
-	mov reg[PRT1DR], A
+	LIGHT_LEDS 0b00011110
 	
 	;----Enable Interrupt for Port1 Pin 0----;
 	;Check out http://www.cypress.com/file/67321/download
@@ -138,6 +173,7 @@ _main:
 	
 	;YS - shadow
 	mov [Port_1_Data_SHADE], 0b00000000
+	mov [measDone], 0
 	
 	mov [whistleValue+1], 3Ch		; LSB of whistleValue
 	mov [whistleValue+0], 00h		; MSB of whistleValue
@@ -146,25 +182,28 @@ _main:
 	; SPLASH SCREEN
 	; ---------------------
 	;;;;; Display first row of splash screen
-	mov A, 0 ; Set LCD Position: Row (A) = 0
-	mov X, 0 ; Col (X) = 0
-	lcall _LCD_Position
-	mov A, >SPLASH_SCREEN_A ; Move MSB of ROM string address into A
-	mov X, <SPLASH_SCREEN_A ; Move LSB into X
-	lcall _LCD_PrCString
+	LCD_POS 0, 0
+	LCD_PRINT SPLASH_SCREEN_A
+	;mov A, 0 ; Set LCD Position: Row (A) = 0
+	;mov X, 0 ; Col (X) = 0
+	;lcall _LCD_Position
+;	mov A, >SPLASH_SCREEN_A ; Move MSB of ROM string address into A
+;	mov X, <SPLASH_SCREEN_A ; Move LSB into X
+;	lcall _LCD_PrCString
 	;;;;; Now display second row
-	mov A, 1 ; Move to row 2
-	mov X, 0
-	lcall _LCD_Position
-	mov A, >SPLASH_SCREEN_B
-	mov X, <SPLASH_SCREEN_B
-	lcall _LCD_PrCString
+	LCD_POS 1,0
+	LCD_PRINT SPLASH_SCREEN_B
+;	mov A, 1 ; Move to row 2
+;	mov X, 0
+;	lcall _LCD_Position
+;	mov A, >SPLASH_SCREEN_B
+;	mov X, <SPLASH_SCREEN_B
+;	lcall _LCD_PrCString
 	;;;; Show for two seconds
 	splash_delay:
 		lcall StopwatchTimer_Start
 		cmp [currNumSecs], 2
 		jc splash_delay ; If carry, that means currNumSecs < 2, so loop
-		
 	call StopwatchTimer_Stop
 	mov [currNumSecs], 0
 	mov [currNumDeciSecs], 0
@@ -207,10 +246,7 @@ soundMode:
 	jnz changeState
 
 	; Light up LEDs with 0-001 (1)
-	mov A, [Port_1_Data_SHADE]
-	and A, 0b11100001 ; Only reset LED pins
-	or A,  0b00000010 ; Bit mask LEDs we wanna light up
-	mov reg[PRT1DR], A
+	LIGHT_LEDS 0b00000010
 	
 	; Go to correct substate
 	cmp [currSubState], 0
@@ -223,18 +259,22 @@ soundMode:
 	; SUBSTATE 0: waiting for whistle
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	wait0ForWhistle_init: 
+		cmp [measDone], 1 ; Did we just finish a measurement? (kludge for button)
+		jz exit1state ; If so, then go.
 		cmp [tempInit], 1						; check if we already initialized
 		jz wait0ForWhistle_idle				; 1 == already initialized; 0 == not initialized
 	wait0ForWhistle_init_LCD: 
 		lcall StopwatchTimer_Stop 			; stop stop watch
 		lcall LCD_Wipe 						; TODO: lcall necessary, or just call?
 		lcall displayTime
-		mov A, 1							; move to second row of LCD
-		mov X, 0
-		lcall _LCD_Position	
-		mov A, >SOUND_MODE_idle
-		mov X, <SOUND_MODE_idle
-		lcall _LCD_PrCString
+		LCD_POS 1, 0
+		LCD_PRINT SOUND_MODE_idle
+;		mov A, 1							; move to second row of LCD
+;		mov X, 0
+;		lcall _LCD_Position	
+;		mov A, >SOUND_MODE_idle
+;		mov X, <SOUND_MODE_idle
+;		lcall _LCD_PrCString
 		mov [tempInit], 1					; 1 == already initialized;
 	wait0ForWhistle_idle:
 		;M8C_EnableGInt 					; re-enable global interrupts 
@@ -285,18 +325,21 @@ soundMode:
 	;	 - waiting for whistle/pushbutton to stop
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	startTimer_init:
+		mov [measDone], 1 ; Note that we're doing a measurement
 		cmp [tempInit], 1								; check if we already initialized
 		jz startTimer_idle							; 1 = already initialized; 0 = not initialized
 	startTimer_init_LCD:
 		mov [currSubState], 1 
 		lcall LCD_Wipe
 		lcall displayTime							; display time
-		mov A, 1									; move to second row of LCD
-		mov X, 0
-		lcall _LCD_Position	
-		mov A, >SOUND_MODE_active
-		mov X, <SOUND_MODE_active
-		lcall _LCD_PrCString
+		LCD_POS 1, 0
+		LCD_PRINT SOUND_MODE_active
+;		mov A, 1									; move to second row of LCD
+;		mov X, 0
+;		lcall _LCD_Position	
+;		mov A, >SOUND_MODE_active
+;		mov X, <SOUND_MODE_active
+;		lcall _LCD_PrCString
 		lcall StopwatchTimer_Start 					; start stop watch
 		mov [tempInit], 1							; 1 = already initialized;
 	startTimer_idle:
@@ -346,14 +389,16 @@ soundMode:
 	
 	exit1state:
 		mov [tempInit] , 0
-		jmp stopTimer
+		; jmp stopTimer
 	
 	stopTimer:
 		lcall StopwatchTimer_Stop
 		; TODO: HERE WE CAN SAVE THE TIME INFO FROM SECONDS, MINUTES, ETC.
-		; ---------
-		; ---------
-		; ---------
+		; Light up LEDs with 0-110 (FROZEN SOUND OUTPUT)
+		LIGHT_LEDS 0b00011000 
+		LCD_POS 1,0
+		LCD_PRINT SOUND_MODE_output
+		lcall timeOutputFreeze ; Save measurement and freeze output
 		mov [currSubState], 0 	; go to timer stopped state 
 		jmp soundMode
 		
@@ -369,10 +414,7 @@ pushButtonMode:
 	jnz changeState
 	
 	; Light up LEDs with 0-010 (2)
-	mov A, [Port_1_Data_SHADE]
-	and A, 0b11100001 ; Only reset LED pins
-	or A,  0b00000100 ; Bit mask LEDs we wanna light up
-	mov reg[PRT1DR], A
+	LIGHT_LEDS 0b00000100
 	
 	; Go to correct substate
 	cmp [currSubState], 0
@@ -382,37 +424,46 @@ pushButtonMode:
 	jz pushButtonMode_run
 	; If we get here - DISPLAY ERROR MESSAGE
 	lcall LCD_Wipe ; TODO: lcall necessary, or just call?
-	mov A, >BAD_SUBSTATE_ERR
-	mov X, <BAD_SUBSTATE_ERR
-	lcall _LCD_PrCString
+	LCD_PRINT BAD_SUBSTATE_ERR
+;	mov A, >BAD_SUBSTATE_ERR
+;	mov X, <BAD_SUBSTATE_ERR
+;	lcall _LCD_PrCString
 	jmp pushButtonMode
 	
 	pushButtonMode_stop:
 		; Timer is stopped!
 		; -- DISPLAY -- 
-		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
-		; DEBUG: DISPLAY DOWN TIME
-		mov A, 0
-		mov X, 14
-		lcall _LCD_Position
-		mov A, [pushButtonDownTime]
-		lcall _LCD_PrHexByte
-		mov A, 0
-		mov X, 0
-		lcall _LCD_Position
-		; END DEBUG
+		; lcall displayDownTime ; DEBUG ONLY
+;		mov A, 0									; move to first row of LCD
+;		mov X, 0
+;		lcall _LCD_Position	
+		LCD_POS 0,0
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
-		mov A, 1
-		mov X, 0
-		lcall _LCD_Position
-		mov A, >STOPPED
-		mov X, <STOPPED
-		lcall _LCD_PrCString
+		LCD_POS 1,0
+		LCD_PRINT STOPPED
+;		mov A, 1
+;		mov X, 0
+;		lcall _LCD_Position
+;		mov A, >STOPPED
+;		mov X, <STOPPED
+;		lcall _LCD_PrCString
 		; -- CONTROL --
 		lcall StopwatchTimer_Stop ; Make sure the stopwatch is stopped
-		; TODO: We can loop forever and check for a switched state/substate manually
-		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		cmp [measDone], 1 
+		jnz pushButtonMode ; If 0 (or not 1), we came from mode switch - don't freeze output. 
+		; If 1, however, we need to freeze the output.
+		; Light up LEDs with 0-111 (FROZEN PUSHBUTTON OUTPUT)
+		LIGHT_LEDS 0b00011100 
+		LCD_POS 1,0
+		LCD_PRINT OUTPUT
+;		mov A, 1
+;		mov X, 0
+;		lcall _LCD_Position
+;		mov A, >OUTPUT
+;		mov X, <OUTPUT
+;		lcall _LCD_PrCString
+		lcall timeOutputFreeze ; Save measurement and freeze output
 		; -- END -- 
 		; Continue in this state
 		jmp pushButtonMode
@@ -420,29 +471,24 @@ pushButtonMode:
 	pushButtonMode_run:
 		; Timer is running!
 		; -- DISPLAY -- (TODO: redundant code, maybe move to psuhButton?)
-		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
-		; DEBUG: DISPLAY DOWN TIME
-		mov A, 0
-		mov X, 14
-		lcall _LCD_Position
-		mov A, [pushButtonDownTime]
-		lcall _LCD_PrHexByte
-		mov A, 0
-		mov X, 0
-		lcall _LCD_Position
-		; END DEBUG
+		; lcall displayDownTime ; DEBUG ONLY
+		LCD_POS 0,0
+;		mov A, 0									; move to first row of LCD
+;		mov X, 0
+;		lcall _LCD_Position	
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
-		mov A, 1
-		mov X, 0
-		lcall _LCD_Position
-		mov A, >RUNNING
-		mov X, <RUNNING
-		lcall _LCD_PrCString
+		LCD_POS 1,0
+		LCD_PRINT RUNNING
+;		mov A, 1
+;		mov X, 0
+;		lcall _LCD_Position
+;		mov A, >RUNNING
+;		mov X, <RUNNING
+;		lcall _LCD_PrCString
 		; -- CONTROL --
 		lcall StopwatchTimer_Start ; Make sure the stopwatch is stopped
-		; TODO: We can loop forever and check for a switched state/substate manually
-		; Or we can go to pushButtonMode, but this means this code will be called repeatedly
+		mov [measDone], 1 ; When we leave this state, note that measurement was done
 		; -- END -- 
 		; Continue in this state
 		jmp pushButtonMode
@@ -459,10 +505,7 @@ microphoneCalibrationMode:
 	jnz changeState
 	
 	; Light up LEDs with 0-011 (3)
-	mov A, [Port_1_Data_SHADE]
-	and A, 0b11100001 ; Only reset LED pins
-	or A,  0b00000110 ; Bit mask LEDs we wanna light up
-	mov reg[PRT1DR], A
+	LIGHT_LEDS 0b00000110 
 	
 	; Go to correct substate
 	cmp [currSubState], 0
@@ -480,17 +523,7 @@ microphoneCalibrationMode:
 	microphoneCalibrationMode_stop:
 		; Timer is stopped!
 		; -- DISPLAY -- 
-		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
-		; DEBUG: DISPLAY DOWN TIME
-		mov A, 0
-		mov X, 14
-		lcall _LCD_Position
-		mov A, [pushButtonDownTime]
-		lcall _LCD_PrHexByte
-		mov A, 0
-		mov X, 0
-		lcall _LCD_Position
-		; END DEBUG
+		;lcall displayDownTime ; DEBUG ONLY
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -508,17 +541,7 @@ microphoneCalibrationMode:
 	microphoneCalibrationMode_run:
 		; Timer is running!
 		; -- DISPLAY -- (TODO: redundant code, maybe move to psuhButton?)
-		lcall LCD_Wipe ; TODO: lcall necessary, or just call?
-		; DEBUG: DISPLAY DOWN TIME
-		mov A, 0
-		mov X, 14
-		lcall _LCD_Position
-		mov A, [pushButtonDownTime]
-		lcall _LCD_PrHexByte
-		mov A, 0
-		mov X, 0
-		lcall _LCD_Position
-		; END DEBUG
+		; lcall displayDownTime ; DEBUG ONLY
 		lcall displayTime ; First row: display time
 		; Move to second row (TODO: replace with macro?)
 		mov A, 1
@@ -547,10 +570,7 @@ resolutionSettingMode:
 	jnz changeState
 	
 	; Light up LEDs with 0-100 (4)
-	mov A, [Port_1_Data_SHADE]
-	and A, 0b11100001 ; Only reset LED pins
-	or A,  0b00001000 ; Bit mask LEDs we wanna light up
-	mov reg[PRT1DR], A
+	LIGHT_LEDS 0b00001000
 
 	; Resolves substate (JL+)
 	cmp [currSubState], 1 ;if the substate is to increment the res
@@ -560,7 +580,7 @@ resolutionSettingMode:
 	;Display the current resolution
 	resolutionSettingMode_displayMode:
 	;todo - we need to test if this works
-	lcall LCD_Wipe
+	;lcall LCD_Wipe
 	mov A, 0 ; Set LCD Position: Row (A) = 0
 	mov X, 0 ; Col (X) = 0
 	lcall _LCD_Position
@@ -618,14 +638,106 @@ memoryMode:
 	jnz changeState
 	
 	; Light up LEDs with 0-101 (5)
-	mov A, [Port_1_Data_SHADE]
-	and A, 0b11100001 ; Only reset LED pins
-	or A,  0b00001010 ; Bit mask LEDs we wanna light up
-	mov reg[PRT1DR], A
+	LIGHT_LEDS  0b00001010
+	; Print "MEM/ORY" on right side of screen
+	LCD_POS 0, 13
+	LCD_PRINT MEM_STR_A
+	LCD_POS 1, 13
+	LCD_PRINT MEM_STR_B
 	
-	; -- END -- 
-	; Continue in this state
+	; Go to correct substate
+	cmp [currSubState], 0
+	jz memoryMode_12
+	cmp [currSubState], 1
+	jz memoryMode_34
+	cmp [currSubState], 2
+	jz memoryMode_5avg
+	cmp [currSubState], 3
+	jz memoryMode_maxmin
+	; If we get here - DISPLAY ERROR MESSAGE
+	lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+	LCD_PRINT BAD_SUBSTATE_ERR
 	jmp memoryMode
+	
+	memoryMode_12:
+		LCD_POS 0,0
+		; Display "01: "
+		LCD_PRINT ONE_STR
+		; Display measurement 0 (1)
+		mov A, [memData0]
+		mov X, [memData0 + 1]
+		lcall _LCD_PrHexInt
+		;;; Next row - display second measurement
+		LCD_POS 1,0
+		; Display "02: "
+		LCD_PRINT TWO_STR
+		; Display measurement 1 (2)
+		mov A, [memData1]
+		mov X, [memData1 + 1]
+		lcall _LCD_PrHexInt
+		; -- END -- 
+		; Continue in this state
+		jmp memoryMode
+		
+	memoryMode_34:
+		LCD_POS 0,0
+		; Display "03: "
+		LCD_PRINT THREE_STR
+		; Display measurement 2 (3)
+		mov A, [memData2]
+		mov X, [memData2 + 1]
+		lcall _LCD_PrHexInt
+		;;; Next row - display fourth measurement
+		LCD_POS 1,0
+		; Display "04: "
+		LCD_PRINT FOUR_STR
+		; Display measurement 3 (4)
+		mov A, [memData3]
+		mov X, [memData3 + 1]
+		lcall _LCD_PrHexInt
+		; -- END -- 
+		; Continue in this state
+		jmp memoryMode
+		
+	memoryMode_5avg:
+		LCD_POS 0,0
+		; Display "05: "
+		LCD_PRINT FIVE_STR
+		; Display measurement 4 (5)
+		mov A, [memData4]
+		mov X, [memData4 + 1]
+		lcall _LCD_PrHexInt
+		;;; Next row - display AVERAGE
+		LCD_POS 1,0
+		; Display "AVG:"
+		LCD_PRINT AVG_STR
+		; Display average time
+		mov A, [averageTime]
+		mov X, [averageTime + 1]
+		lcall _LCD_PrHexInt
+		; -- END -- 
+		; Continue in this state
+		jmp memoryMode
+		
+	memoryMode_maxmin:
+		LCD_POS 0,0
+		; Display "MAX:"
+		LCD_PRINT MAX_STR
+		; Display measurement 4 (5)
+		mov A, [longestTime]
+		mov X, [longestTime + 1]
+		lcall _LCD_PrHexInt
+		;;; Next row - display AVERAGE
+		LCD_POS 1,0
+		; Display "MIN:"
+		LCD_PRINT MIN_STR
+		; Display average time
+		mov A, [shortestTime]
+		mov X, [shortestTime + 1]
+		lcall _LCD_PrHexInt
+		; -- END -- 
+		; Continue in this state
+		jmp memoryMode
 
 
 ;----------------------------------------------------;
@@ -638,6 +750,7 @@ memoryMode:
 ; This state is jumped to when a state notices that it doesn't match currentState 
 ; Take us to the correct state
 changeState:
+	lcall LCD_Wipe ; Wipe LCD between state transitions.
 	mov A, [currState] ; Move to A to speed up comparisons
 	cmp A, 0
 	jz soundMode
@@ -655,7 +768,7 @@ changeState:
 	;mov [currState], 0
 	;ljmp soundMode
 	; -- Display error text.
-	lcall LCD_Wipe ; TODO: lcall necessary, or just call?
+	lcall LCD_Wipe 
 	mov A, >BAD_STATE_ERROR
 	mov X, <BAD_STATE_ERROR
 	lcall _LCD_PrCString
@@ -689,13 +802,8 @@ displayTime:
 	; From here, we need to determine which resolution we're gonna display
 	cmp [currRes], 2 ; Is resolution 1?
 	jz endDisplayTime ; Then don't display the res
-	; HRS:MIN:SEC:
-	mov A, ':'
-	lcall _LCD_WriteData
-	; HRS:MIN:SEC:[RES]
-	mov A, [currNumDeciSecs]
 	cmp [currRes], 0 ; Is resolution 0.1?
-	jz displayRes
+	jz displayRes ; If yes, display the resolution.
 	; If we're here, then resolution is 0.5. In that case, only display if DeciSecs is 5 or 0.
 	cmp A, 5 ; If deciSecs = 5
 	jz displayRes ; display
@@ -703,12 +811,28 @@ displayTime:
 	jz displayRes ; display
 	jmp endDisplayTime ; else, don't display
 	displayRes:
+	; HRS:MIN:SEC:
+	mov A, ':'
+	lcall _LCD_WriteData
+	; HRS:MIN:SEC:[RES]
+	mov A, [currNumDeciSecs]
 	lcall _LCD_PrHexByte
 	; --- END ---
 	endDisplayTime:
 	ret
-	
 
+; DEBUG ONLY: Display pushbutton down time.
+;displayDownTime:
+;DEBUG: DISPLAY DOWN TIME
+;	mov A, 0
+;	mov X, 14
+;	lcall _LCD_Position
+;	mov A, [pushButtonDownTime]
+;	lcall _LCD_PrHexByte
+;	mov A, 0
+;	mov X, 0
+;	lcall _LCD_Position
+;	ret
 
 ;Calculate Time In Seconds:
 ;Convert the time from hrs, min, sec to seconds
@@ -739,6 +863,21 @@ LCD_Wipe:
 	; --- END ---
 	ret
 	
+timeOutputFreeze:
+	M8C_DisableIntMask INT_MSK0, INT_MSK0_GPIO ; Disable GPIO interrupt so pushbutton doesn't work
+	mov [pushButtonDownTime], 0
+	lcall saveTimeData ; Save this measurement
+	lcall PushButtonTimer_Start ; Use pushbutton timer to count out 2 seconds (20 deciseconds)
+	; Use this time to save our measurement
+	waitFor2Secs_loop:
+		cmp [pushButtonDownTime], 20 ; Wait until 20 deciseconds. TODO: Make this variable?
+		jc waitFor2Secs_loop ; If carry, we're < 20 so loop back.
+	; We're out of the loop if we reach here.
+	mov [pushButtonDownTime], 0
+	M8C_EnableIntMask INT_MSK0, INT_MSK0_GPIO ; Re-enable GPIO (pushbutton) interrupt
+	mov [measDone], 0 ; Remove pending measurement
+	RESET_TIME ; Reset timer
+
 ;JL+
 ;Save Time Data:
 ;Saves the current time in seconds for memory mode
@@ -951,10 +1090,14 @@ BAD_SUBSTATE_ERR:
 	ds "BAD SUBSTATE ERR"
 	db 0x0
 STOPPED:
-	ds "STOPPED!"
+	; Two spaces required to cover up the two dots from RUNNING since we don't wipe LCD
+	ds "STOPPED!  " 
 	db 0x0
 RUNNING: 
 	ds "RUNNING..."
+	db 0x0
+OUTPUT:
+	ds "- OUTPUT -"
 	db 0x0
 TEST_STR_A:
 	ds "A TEST A!"
@@ -968,6 +1111,9 @@ SOUND_MODE_idle:
 SOUND_MODE_active:
 	ds "SOUND MODE :)"
 	db 0x0
+SOUND_MODE_output:
+	ds "SOUND MODE :OUT"
+	db 0x0
 ;string literals for current resolutions to display to user
 CURRENT_RES_0P1:
 	ds "CURR RES: 0.1s"
@@ -977,5 +1123,35 @@ CURRENT_RES_0P5:
 	db 0x0
 CURRENT_RES_1P0:
 	ds "CURR RES: 1.0s"
+	db 0x0
+MAX_STR:
+	ds "MAX: "
+	db 0x0
+MIN_STR: 
+	ds "MIN: "
+	db 0x0
+AVG_STR:
+	ds "AVG: "
+	db 0x0
+ONE_STR:
+	ds "  1: "
+	db 0x0
+TWO_STR:
+	ds "  2: "
+	db 0x0
+THREE_STR:
+	ds "  3: "
+	db 0x0
+FOUR_STR:
+	ds "  4: "
+	db 0x0
+FIVE_STR:
+	ds "  5: "
+	db 0x0
+MEM_STR_A:
+	ds "MEM"
+	db 0x0
+MEM_STR_B:
+	ds "ORY"
 	db 0x0
 .ENDLITERAL 
